@@ -685,8 +685,11 @@ const A={
         c.textAlign='left'; c.globalAlpha=1;
       });
       if(t>1.5){
-        c.globalAlpha=pg(t,1.5,.4); c.fillStyle=CC.a3; c.font='11px IBM Plex Mono'; c.textAlign='center';
-        c.fillText('[26, 4, 12, 12, 0, 26]  — the model only sees these numbers',c.W/2,c.H-10);
+        c.globalAlpha=pg(t,1.5,.4); c.fillStyle=CC.a3; c.textAlign='center';
+        // Use smaller font if text would overflow
+        const tokMsg='[26, 4, 12, 12, 0, 26] — model sees only numbers';
+        c.font=c.W<360?'9px IBM Plex Mono':'11px IBM Plex Mono';
+        c.fillText(tokMsg,c.W/2,c.H-10);
         c.textAlign='left'; c.globalAlpha=1;
       }
       t+=.015; if(t<5)RAF['tok']=requestAnimationFrame(draw);
@@ -810,7 +813,7 @@ const A={
           if(t>.9){c.globalAlpha=pg(t,.9);c.fillStyle=CC.dm;c.font='9px IBM Plex Mono';c.fillText('...+8',6+100+8*((tw-100)/8)+2,y+12);c.globalAlpha=1;}
         }
       }
-      if(t>1.4){c.globalAlpha=pg(t,1.4,.4);c.fillStyle=CC.ac;c.font='11px IBM Plex Mono';c.fillText("combined = letter 'e' profile + position profile",6,c.H-10);c.globalAlpha=1;}
+      if(t>1.4){c.globalAlpha=pg(t,1.4,.4);c.fillStyle=CC.ac;c.font='10px IBM Plex Mono';c.textAlign='center';c.fillText("letter + position = combined identity",c.W/2,c.H-10);c.textAlign='left';c.globalAlpha=1;}
       t+=.014; if(t<5)RAF['emb']=requestAnimationFrame(draw);
     }; draw();
   },
@@ -837,7 +840,7 @@ const A={
         if(isPast&&aw>0){
           const bh=aw*38*ei(lt);
           c.fillStyle=CC.a3+'99'; c.fillRect(bx+3,ty+36,bw-6,bh);
-          c.fillStyle=CC.a3; c.font='9px IBM Plex Mono'; c.textAlign='center'; c.fillText((aw*100).toFixed(0)+'%',bx+bw/2,ty+40+bh); c.textAlign='left';
+          if(bh>8){c.fillStyle=CC.a3; c.font='9px IBM Plex Mono'; c.textAlign='center'; c.fillText((aw*100).toFixed(0)+'%',bx+bw/2,Math.min(ty+40+bh, c.H-6)); c.textAlign='left';}
         }
       });
       c.fillStyle=CC.dm; c.font='10px Inter'; c.textAlign='center'; c.fillText('Bar height = how much attention is paid to that past letter',c.W/2,c.H-8); c.textAlign='left';
@@ -856,10 +859,10 @@ const A={
       const cs=Math.min(30,(c.W-90)/n),ox=62,oy=36;
       c.font='9px IBM Plex Mono'; c.fillStyle=CC.dm;
       c.textAlign='center';
-      c.fillText('← which letter is asking?',ox+n*cs/2,14);
+      c.fillText('← asking?',ox+n*cs/2,14);
       c.textAlign='left';
       c.save(); c.translate(12,oy+n*cs/2+10); c.rotate(-Math.PI/2);
-      c.textAlign='center'; c.fillText('which letter is answering? →',0,0); c.restore();
+      c.textAlign='center'; c.fillText('answering →',0,0); c.restore();
       // Column headers (letters across top)
       tks.forEach((tk,i)=>{
         c.fillStyle=CC.dm; c.font='13px Inter'; c.textAlign='center';
@@ -908,24 +911,48 @@ const A={
       if(t>1.0){
         const ap=pg(t,1.0,.5); c.globalAlpha=ap; c.strokeStyle=CC.a3; c.lineWidth=2.5;
         const y1=stages[0].y*c.H, y2=stages[stages.length-1].y*c.H;
-        // Arc from right edge of widest box — ensure at least 32px of arc room
         const boxEdge=cx+82;
-        const arcPeak=Math.min(boxEdge+36, c.W-6);
-        c.beginPath(); c.moveTo(boxEdge,y1); c.bezierCurveTo(arcPeak+10,y1,arcPeak+10,y2,boxEdge,y2); c.stroke();
-        // Label always drawn — positioned on the arc peak, rotated
-        const lx=(boxEdge+arcPeak)/2+14;
-        const ly=(y1+y2)/2;
-        c.save(); c.translate(lx, ly); c.rotate(-Math.PI/2);
-        c.fillStyle=CC.a3+'dd'; c.font='500 9px IBM Plex Mono'; c.textAlign='center';
-        c.fillText('skip connection', 0, 4);
-        c.restore();
+        // Arc needs at least 50px of room to look good; cap at canvas edge
+        const arcRoom=Math.max(50, Math.min(70, c.W-boxEdge-8));
+        const arcPeak=boxEdge+arcRoom;
+        c.beginPath(); c.moveTo(boxEdge,y1);
+        c.bezierCurveTo(arcPeak,y1, arcPeak,y2, boxEdge,y2); c.stroke();
+        // Label: horizontal pill sitting to the RIGHT of arc peak, vertically centred
+        const lmy=(y1+y2)/2;
+        const lblX=arcPeak+6;
+        const lblText='skip';
+        c.font='500 9px IBM Plex Mono';
+        const tw=c.measureText(lblText).width;
+        const lpad=5, lh=16;
+        // Only draw if it fits in canvas
+        if(lblX+tw+lpad*2 < c.W-2){
+          c.fillStyle='rgba(52,211,153,0.12)';
+          c.strokeStyle=CC.a3+'88'; c.lineWidth=1;
+          c.beginPath(); c.roundRect(lblX,lmy-lh/2,tw+lpad*2,lh,3); c.fill(); c.stroke();
+          c.fillStyle=CC.a3; c.textAlign='left';
+          c.fillText(lblText, lblX+lpad, lmy+4);
+        } else {
+          // Not enough room — draw label on the arc as small rotated text
+          c.save(); c.translate(arcPeak-10,(y1+y2)/2);
+          c.rotate(-Math.PI/2);
+          c.fillStyle=CC.a3+'cc'; c.font='500 8px IBM Plex Mono'; c.textAlign='center';
+          c.fillText('skip',0,4); c.restore();
+        }
         c.textAlign='left'; c.globalAlpha=1;
       }
       if(t>1.5){
-        const pt=((t-1.5)%1.4)/1.4; const y1=stages[0].y*c.H, y2=stages[stages.length-1].y*c.H;
-        const boxEdge2=cx+82, arcPeak2=Math.min(boxEdge2+36,c.W-6);
+        const pt=((t-1.5)%1.4)/1.4;
+        const y1=stages[0].y*c.H, y2=stages[stages.length-1].y*c.H;
+        const boxEdge2=cx+82;
+        const arcRoom2=Math.max(50,Math.min(70,c.W-boxEdge2-8));
+        const arcPeak2=boxEdge2+arcRoom2;
         const ry=y1+(y2-y1)*ei(pt);
-        const rx2=boxEdge2+(arcPeak2+10-boxEdge2)*Math.sin(Math.PI*ei(pt));
+        // Bezier x: at pt=0 → boxEdge, pt=0.5 → arcPeak, pt=1 → boxEdge
+        const bx=3*(1-ei(pt))*ei(pt)*ei(pt)*arcPeak2 +
+                  Math.pow(ei(pt),3)*boxEdge2 +
+                  3*Math.pow(1-ei(pt),2)*ei(pt)*arcPeak2 +
+                  Math.pow(1-ei(pt),3)*boxEdge2;
+        const rx2=bx;
         const gr=c.createRadialGradient(rx2,ry,0,rx2,ry,8);
         gr.addColorStop(0,CC.a3); gr.addColorStop(1,'transparent');
         c.fillStyle=gr; c.beginPath(); c.arc(rx2,ry,8,0,Math.PI*2); c.fill();
@@ -1093,7 +1120,7 @@ const A={
       const refY=oy+gh-((3.3-minL)/(maxL-minL))*gh;
       c.strokeStyle=CC.a4+'66'; c.lineWidth=1; c.setLineDash([5,4]);
       c.beginPath(); c.moveTo(ox,refY); c.lineTo(ox+gw,refY); c.stroke(); c.setLineDash([]);
-      c.fillStyle=CC.a4+'88'; c.font='10px Inter'; c.fillText('starting point — pure guessing',ox+4,refY-4);
+      c.fillStyle=CC.a4+'88'; c.font='10px Inter'; c.fillText('← random guessing',ox+4,refY-4);
       const fr=Math.min(199,Math.floor(t*25));
       c.strokeStyle=CC.a3; c.lineWidth=2;
       c.beginPath();
