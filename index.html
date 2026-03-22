@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>microGPT — How a GPT Works</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0f1a;       /* deep navy — professional, not pure black */
+  --s:#111827;        /* card background — slightly lighter */
+  --s2:#1a2235;       /* inner panel — subtle depth */
+  --bd:#1e293b;       /* borders — slate-800 tone */
+  --ac:#4f8ef7;       /* primary accent — clean blue */
+  --a2:#818cf8;       /* secondary — indigo for technical */
+  --a3:#34d399;       /* success/positive — emerald */
+  --a4:#f472b6;       /* highlight — rose, used sparingly */
+  --tx:#e2e8f0;       /* body text — slate-200 */
+  --dm:#64748b;       /* muted text — slate-500 */
+  --code:#070b12;     /* code background — darkest */
+  --nt:#f59e0b;       /* non-tech accent — amber */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+
+/* ── Hero ── */
+.hero{background:linear-gradient(160deg,#0b0f1a 0%,#0f172a 50%,#0b1629 100%);border-bottom:1px solid var(--bd);padding:56px 24px 48px;position:relative;overflow:hidden;text-align:center}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(79,142,247,.08),transparent);pointer-events:none}
+.hlabel{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--a3);letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;opacity:.8}
+h1{font-family:'Sora',sans-serif;font-size:clamp(28px,5vw,50px);font-weight:800;line-height:1.12;color:var(--tx);margin-bottom:14px;letter-spacing:-0.02em}
+h1 span{background:linear-gradient(135deg,var(--ac),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hsub{color:var(--dm);font-size:16px;max-width:560px;margin:0 auto;font-weight:400;line-height:1.65}
+.hsub span{color:var(--ac);font-weight:500}
+
+/* ── Progress bar ── */
+.prg{height:2px;background:var(--bd);position:sticky;top:0;z-index:102}
+.prg-f{height:100%;background:linear-gradient(90deg,var(--ac),var(--a2));width:0;transition:width .1s}
+
+/* ── Tab bar ── */
+.abar{position:sticky;top:2px;z-index:100;background:rgba(11,15,26,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);padding:0 20px;display:flex;align-items:center;gap:0;overflow-x:auto}
+.albl{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dm);letter-spacing:2px;text-transform:uppercase;margin-right:16px;white-space:nowrap;opacity:.6}
+.tab{padding:13px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--dm);border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;user-select:none;letter-spacing:.01em}
+.tab:hover{color:var(--tx)}
+.tab.active{color:var(--ac);border-bottom-color:var(--ac)}
+
+/* ── Layout ── */
+.wrap{max-width:880px;margin:0 auto;padding:36px 16px}
+
+/* ── Act dividers ── */
+.act{text-align:center;padding:32px 0 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dm);letter-spacing:3px;text-transform:uppercase;position:relative}
+.act::before{content:'';display:block;height:1px;background:var(--bd);position:absolute;top:50%;left:0;right:0;margin-top:7px}
+.act span{background:var(--bg);padding:0 18px;position:relative}
+
+/* ── Cards ── */
+.card{background:var(--s);border:1px solid var(--bd);border-radius:12px;margin-bottom:16px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:#2d3f5e;box-shadow:0 4px 24px rgba(0,0,0,.3)}
+.ch{padding:16px 20px 13px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none}
+.cnum{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dm);background:var(--s2);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;white-space:nowrap;letter-spacing:.03em}
+.ctitle{font-family:'Sora',sans-serif;font-size:16px;font-weight:600;flex:1;letter-spacing:-.01em}
+.chev{color:var(--dm);font-size:13px;transition:transform .3s}.card.open .chev{transform:rotate(180deg)}
+.cb{display:none}.card.open .cb{display:block}
+
+/* ── Code blocks ── */
+pre.code{background:var(--code);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);padding:14px 20px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.85;overflow-x:auto;color:#94a3b8;white-space:pre}
+.kw{color:#a78bfa}.fn{color:#60a5fa}.st{color:#6ee7b7}.nm{color:#fbbf24}.cm{color:#334155;font-style:italic}.cl{color:#fcd34d}
+
+/* ── Explanation panels ── */
+.expl{padding:0 20px 20px}
+.ap{display:none}.ap.active{display:block}
+.lb{margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid var(--bd)}
+.lh{padding:9px 16px;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+.lbody{padding:16px 18px;font-size:14.5px;line-height:1.8;background:var(--s2);color:var(--tx)}
+.lnt .lh{background:rgba(245,158,11,.08);color:var(--nt);border-bottom:1px solid rgba(245,158,11,.15)}
+.ltc .lh{background:rgba(129,140,248,.08);color:var(--a2);border-bottom:1px solid rgba(129,140,248,.15)}
+
+/* ── Analogy callout ── */
+.analogy{background:rgba(79,142,247,.05);border-left:3px solid var(--ac);border-radius:0 6px 6px 0;padding:10px 14px;margin:12px 0;font-size:13.5px;font-style:italic;color:#94a3b8;line-height:1.7}
+.analogy::before{content:'💡 Analogy: ';font-style:normal;font-weight:600;color:var(--ac)}
+
+/* ── Animation containers ── */
+.ac{background:var(--code);border:1px solid var(--bd);border-radius:8px;padding:14px;margin:12px 0;overflow:hidden}
+.al{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dm);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+canvas{display:block;width:100%;overflow:hidden}
+.abtn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:5px;padding:6px 14px;font-size:11px;color:var(--ac);cursor:pointer;transition:all .2s;font-family:'IBM Plex Mono',monospace;letter-spacing:.02em}
+.abtn:hover{background:rgba(79,142,247,.15);border-color:var(--ac)}
+
+/* ── Tables ── */
+.vtbl{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+.vtbl th{background:var(--s);color:var(--dm);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:8px 12px;text-align:left;border-bottom:1px solid var(--bd)}
+.vtbl td{padding:9px 12px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}
+.vtbl tr:last-child td{border-bottom:none}
+.vtbl tr:hover td{background:rgba(255,255,255,.02)}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--a2)}
+
+/* ── Typography ── */
+strong{color:var(--tx);font-weight:600}
+em{color:var(--ac);font-style:normal;font-weight:500}
+input[type=range]{width:100%;margin-top:8px;accent-color:var(--ac);cursor:pointer}
+
+/* ── Mobile ── */
+@media(max-width:600px){
+  .hero{padding:40px 16px 32px}
+  .ctitle{font-size:15px}
+  .abar{justify-content:flex-start;padding:0 12px}
+  .ch{padding:13px 14px 10px;gap:10px}
+  .expl{padding:0 14px 14px}
+  .lbody{padding:13px 14px;font-size:14px}
+  .ac{padding:11px}
+  .abtn{font-size:11px;padding:5px 11px}
+  .wrap{padding:24px 12px}
+}
+</style>
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hlabel">Andrej Karpathy · microgpt.py · Animated Explainer</div>
+  <h1>How a GPT Works<br><span>Line by Line</span></h1>
+  <p class="hsub">Karpathy's <span>200-line art project</span> — fully explained with live animated diagrams. Start in plain English, switch to technical detail any time.</p>
+  <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <a href="https://gist.github.com/karpathy/8627fe009c40f57531cb18360106ce95" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:6px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#93c5fd;text-decoration:none;transition:all .2s">&#x2731; GitHub Source</a>
+    <a href="http://karpathy.github.io/2026/02/12/microgpt/" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:6px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#93c5fd;text-decoration:none;transition:all .2s">&#x1F4DD; Karpathy's Blog</a>
+    <a href="https://colab.research.google.com/drive/1vyN5zo6rqUp_dYNbT4Yrco66zuWCZKoN?usp=sharing" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:6px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#93c5fd;text-decoration:none;transition:all .2s">&#x25B6; Run on Colab</a>
+  </div>
+</div>
+<div class="prg"><div class="prg-f" id="pf"></div></div>
+<div class="abar">
+  <div class="albl">View as →</div>
+  <div class="tab active" onclick="setAud('nt')" data-a="nt">🙋 Non-Technical</div>
+  <div class="tab" onclick="setAud('tc')" data-a="tc">💻 Technical</div>
+  <div class="tab" onclick="setAud('all')" data-a="all">👀 Both</div>
+</div>
+
+<div class="wrap">
+<div class="act"><span>ACT 1 · SETUP & DATA</span></div>
+
+<!-- S1 Random Seed -->
+<div class="card open" id="s1">
+  <div class="ch" onclick="tog('s1')"><div class="cnum">lines 1–6</div><span style="font-size:19px">🎲</span><div class="ctitle">Imports & Random Seed</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code"><span class="kw">import</span> os, math, random
+random.seed(<span class="nm">42</span>)  <span class="cm"># same seed = same sequence every run</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      The code borrows three helper tools from Python's built-in library, then sets a starting point for all "random" choices made later. By fixing this starting point to 42, every run of the program makes the exact same choices in the exact same order — so two people running it on different computers get identical results.
+      <div class="ac"><div class="al">🎲 Same starting point = same sequence every time</div>
+        <canvas id="cv_seed" height="110"></canvas>
+        <button class="abtn" onclick="try{A.seed()}catch(e){console.error('seed:',e)}">▶ Show Two Runs</button>
+      </div>
+      <div class="analogy">Two friends agree to shuffle a deck of cards using the exact same starting arrangement and the same shuffle method. They'll always end up with identical decks, even if they're in different cities.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Seeds Python's Mersenne Twister PRNG. Every downstream call — <code>random.gauss</code> (weight init), <code>random.shuffle</code> (data order), <code>random.choices</code> (inference sampling) — is fully deterministic from this point. Zero external dependencies: pure stdlib only, no numpy.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S2 Dataset -->
+<div class="card open" id="s2">
+  <div class="ch" onclick="tog('s2')"><div class="cnum">lines 8–14</div><span style="font-size:19px">📚</span><div class="ctitle">Loading & Shuffling 32,000 Names</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">docs = [line.strip() <span class="kw">for</span> line <span class="kw">in</span> <span class="fn">open</span>(<span class="st">'input.txt'</span>) <span class="kw">if</span> line.strip()]
+random.shuffle(docs)  <span class="cm"># break alphabetical order → prevent bias</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      The program reads roughly 32,000 real first names from a text file (emma, liam, sofia...) and then scrambles them into a random order. The scrambling step is important — if it studied names in alphabetical order, it would wrongly learn that names start with letters near the beginning of the alphabet more often than they really do.
+      <div class="ac"><div class="al">🃏 Scrambling removes hidden ordering patterns</div>
+        <canvas id="cv_shuf" height="120"></canvas>
+        <button class="abtn" onclick="try{A.shuffle()}catch(e){console.error('shuffle:',e)}">▶ Shuffle!</button>
+      </div>
+      <div class="analogy">A teacher who only tests students on Monday mornings might conclude that students are always energetic and well-prepared. Testing on random days throughout the week reveals a more accurate picture.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      List comprehension with double-duty <code>line.strip()</code> — strips whitespace AND filters empty strings via Python truthiness in one pass. Training cycles via <code>docs[step % len(docs)]</code>. 1000 steps / 32K docs = &lt;4% data coverage per run.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S3 Tokenizer -->
+<div class="card open" id="s3">
+  <div class="ch" onclick="tog('s3')"><div class="cnum">lines 16–20</div><span style="font-size:19px">🔢</span><div class="ctitle">Tokenizer — Letters Become Numbers</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">uchars = <span class="fn">sorted</span>(<span class="fn">set</span>(<span class="st">''</span>.join(docs)))  <span class="cm"># ['a','b',...,'z']</span>
+BOS = <span class="fn">len</span>(uchars)               <span class="cm"># id=26, special start/end signal</span>
+vocab_size = <span class="fn">len</span>(uchars) + <span class="nm">1</span>    <span class="cm"># 27 total symbols</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      Computers can only work with numbers — they can't read letters directly. So the first step is to create a simple lookup table that assigns every letter a number: a=0, b=1, c=2... all the way to z=25. There's also one extra special number (26) that acts like a 🔔 bell — it means "a name is starting" at the beginning, and "this name is finished" at the end.
+      <div class="ac"><div class="al">🔤 → 🔢 Watch "emma" become a list of numbers</div>
+        <canvas id="cv_tok" height="150"></canvas>
+        <button class="abtn" onclick="try{A.token()}catch(e){console.error('token:',e)}">▶ Encode "emma"</button>
+      </div>
+      <div class="analogy">It's exactly like a simple spy code where A=0, B=1, C=2. The message "CAB" becomes "2-0-1". The computer reads the numbers, not the letters.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Character-level tokenization. Encode: <code>uchars.index(ch)</code>. Decode: <code>uchars[id]</code>. BOS is dual-role (SOS+EOS) — reduces vocab by 1 vs separate tokens. Training format: <code>[BOS]+chars+[BOS]</code>. No OOV tokens possible — closed vocabulary of 27.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<div class="act"><span>ACT 2 · HOW THE MODEL LEARNS FROM MISTAKES</span></div>
+
+<!-- S4 Value class -->
+<div class="card open" id="s4">
+  <div class="ch" onclick="tog('s4')"><div class="cnum">lines 22–50</div><span style="font-size:19px">🔗</span><div class="ctitle">Numbers That Remember Where They Came From</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code"><span class="kw">class</span> <span class="cl">Value</span>:
+    self.data = data            <span class="cm"># the actual number</span>
+    self.grad = <span class="nm">0</span>              <span class="cm"># how responsible is this number for the final error?</span>
+    self._children = children   <span class="cm"># which numbers created this one?</span>
+
+<span class="nm">a+b</span>  → both parents receive the full upstream gradient (∂/∂a = 1, ∂/∂b = 1)
+<span class="nm">a*b</span>  → each parent's blame depends on the other's value</pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      Every number in this program is a special kind of number that doesn't just hold a value — it also remembers how it was created. If a number was made by adding two other numbers, it remembers both of those "parent" numbers. This record-keeping makes it possible to trace any mistake all the way back to its root cause.
+      <div class="ac"><div class="al">🌳 Every calculation builds a family tree</div>
+        <canvas id="cv_cg" height="210"></canvas>
+        <button class="abtn" onclick="try{A.cgraph()}catch(e){console.error('cgraph:',e)}">▶ Build graph: (3×4)+2 = 14</button>
+      </div>
+      <div class="analogy">Imagine a detailed receipts system at a restaurant. Every dish on the bill traces back to ingredients, which trace back to suppliers. If there's a problem with a dish, you can follow the paper trail all the way back to the source.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Define-by-run dynamic computation graph — DAG built implicitly during the forward pass. <code>__slots__</code> avoids per-instance <code>__dict__</code> overhead (~200→64 bytes/node). Local grads captured as Python floats at forward time — second-order AD unsupported. <code>+=</code> handles fan-out correctly: accumulates gradients from all downstream uses, implementing the multivariate chain rule.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S5 Backward -->
+<div class="card open" id="s5">
+  <div class="ch" onclick="tog('s5')"><div class="cnum">lines 52–65</div><span style="font-size:19px">⬅️</span><div class="ctitle">Tracing Mistakes Backward to Fix Them</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">self.grad = <span class="nm">1</span>              <span class="cm"># ∂loss/∂loss = 1 by definition (loss is 100% responsible for itself)</span>
+<span class="kw">for</span> v <span class="kw">in</span> reversed(topo):   <span class="cm"># walk backward through the family tree</span>
+    child.grad += local_grad * v.grad  <span class="cm"># chain rule: upstream_grad × local_grad → accumulate into parent.grad</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      Once we know how wrong the model was, we trace backward through the entire family tree of calculations to figure out which numbers were responsible — and by how much. Every single number that contributed to the wrong answer gets a "blame score." Numbers with high blame scores tend to get larger adjustments — though the exact size also depends on the optimizer and learning rate.
+      <div class="ac"><div class="al">🌊 Blame flows backward — each number gets its responsibility score</div>
+        <canvas id="cv_bp" height="290"></canvas>
+        <button class="abtn" onclick="try{A.backprop()}catch(e){console.error('backprop:',e)}">▶ Run Backward Pass</button>
+      </div>
+      <div class="analogy">A relay race where the baton was dropped. The team investigates: the last runner dropped it because of a bad grip → the bad grip happened because the handoff angle was wrong → the angle was wrong because the previous runner threw it incorrectly. Each person gets a blame score based on how much they contributed to the final mistake.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Post-order DFS builds topological sort O(V+E). Reversing gives reverse topological order — guarantees v.grad has all upstream contributions when processed. <code>visited</code> set prevents reprocessing shared nodes. <code>+=</code> implements: ∂L/∂x = Σᵢ (∂L/∂yᵢ)(∂yᵢ/∂x) — multivariate chain rule for fan-out nodes.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S5b ReLU -->
+<div class="card open" id="s5b">
+  <div class="ch" onclick="tog('s5b')"><div class="cnum">activation</div><span style="font-size:19px">⚡</span><div class="ctitle">The On/Off Switch That Makes the Model Smart</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code"><span class="kw">def</span> <span class="fn">relu</span>(x): <span class="kw">return</span> max(<span class="nm">0</span>, x)
+<span class="cm"># positive numbers pass through unchanged; negative numbers become 0</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      This is a simple gate: if a number coming in is positive, it passes through unchanged. If it's negative, it gets replaced with zero. That's it. But this tiny rule is critical — without it, the entire model would be mathematically equivalent to a single extremely simple calculation, no matter how many layers you stacked. Without this gate, stacking more layers has no benefit — the whole network would collapse to a single linear transformation. The gate is what allows the model to learn non-linear relationships in the data.
+      <div class="ac"><div class="al">⚡ Drag the slider — watch the gate open and close</div>
+        <canvas id="cv_relu" height="170"></canvas>
+        <input type="range" id="slRelu" min="-30" max="30" value="-10">
+        <div id="reluOut" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dm);margin-top:4px"></div>
+      </div>
+      <div class="analogy">A light switch in a circuit. Ten dimmers (sliders) in a row is still just one dimmer — you can only control brightness. But add actual on/off switches between them and suddenly you can create far more complex patterns — like a specific sequence of flashes that couldn't be expressed with dimmers alone.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      ReLU instead of GeLU (noted deviation from GPT-2). Hard zero creates activation sparsity — ~50% of neurons inactive per forward pass, acting as implicit regularisation. Dead neuron problem: units receiving permanently negative input never receive gradient. GeLU ≈ E[Bernoulli gate × input] — empirically outperforms ReLU in transformers (Hendrycks & Gimpel, 2016). Choice here is pedagogical simplicity.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<div class="act"><span>ACT 3 · THE GPT BRAIN</span></div>
+
+<!-- S6 Embeddings -->
+<div class="card open" id="s6">
+  <div class="ch" onclick="tog('s6')"><div class="cnum">lines 67–90</div><span style="font-size:19px">🗺️</span><div class="ctitle">Giving Every Letter a Rich Identity</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">wte[<span class="nm">27</span>×<span class="nm">16</span>]  <span class="cm"># lookup table: each letter → 16-number description</span>
+wpe[<span class="nm">16</span>×<span class="nm">16</span>]  <span class="cm"># position table: each position → 16-number description</span>
+x = letter_description + position_description</pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      The number 4 just means the letter "e" — it's a label with no meaning of its own. Before the model can work with it, the number 4 gets swapped for a list of 16 learned numbers that represent "e" as a fixed identity — the same 16 numbers every time "e" appears, regardless of its context. Context-sensitivity comes later, in the attention step. Think of it like upgrading from a name badge (just a label) to a full profile card (personality, history, relationships). The letter's position in the name also gets its own profile, and the two are combined.
+      <div class="ac"><div class="al">🎴 Watch a single letter become a rich 16-number profile</div>
+        <canvas id="cv_emb" height="190"></canvas>
+        <button class="abtn" onclick="try{A.embed()}catch(e){console.error('embed:',e)}">▶ Look up letter 'e'</button>
+      </div>
+      <div class="analogy">Before training: 'e' is just the number 4 — meaningless. After training: in larger, well-trained models, similar letters tend to end up with similar profiles — vowels cluster near each other, for example. At this tiny scale (16 numbers, 1000 steps) the structure is more limited, but the same principle applies.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      wte = 27×16 learned lookup table. wpe = 16×16 learned absolute position embeddings (not fixed sinusoidal). Summed not concatenated — network must linearly disentangle identity from position in downstream layers. No weight tying wte↔lm_head (GPT-2 ties them, saving params and empirically helping at scale).
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S7 Attention -->
+<div class="card open" id="s7">
+  <div class="ch" onclick="tog('s7')"><div class="cnum">lines 95–128</div><span style="font-size:19px">🧠</span><div class="ctitle">Attention — The Model Reads Its Own Past</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">q = "what am I looking for from past letters?"
+k = "what does each past letter advertise?"
+v = "what is each past letter's actual content?"
+attention = how well q matches each k → weighted mix of v</pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      When the model is about to predict the next letter in "brend___", it doesn't just look at the last letter — it scans back through all the previous letters and decides which ones are most relevant to the decision it's about to make. It shines a spotlight on the most useful past letters and pays less attention to the less relevant ones. The diagram below shows this spotlight moving through a name in real time.
+      <div class="ac"><div class="al">🔦 Watch the attention spotlight move across letters</div>
+        <canvas id="cv_attn" height="215"></canvas>
+        <button class="abtn" onclick="try{A.attn()}catch(e){console.error('attn:',e)}">▶ Watch Attention Move</button>
+      </div>
+      <div class="analogy">Like a chef mid-recipe who glances back at the recipe card. They don't re-read the entire recipe — they focus on the step that's most relevant right now. The model learned during training which patterns in past letters tend to be useful at each point — it encodes this as weight matrices, not rules anyone wrote by hand.</div>
+      <br><strong>Why 4 attention heads?</strong> The model runs this spotlight process 4 times in parallel, each one looking for different kinds of patterns — each one may pick up on different statistical patterns in the data. All four results get combined.
+      <div class="ac"><div class="al">📊 Attention scores as a grid — darker = more attention paid</div>
+        <canvas id="cv_amat" height="230"></canvas>
+        <button class="abtn" onclick="try{A.attnmat()}catch(e){console.error('attnmat:',e)}">▶ Show Grid</button>
+      </div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Causal self-attention with growing KV cache. Causality enforced structurally (sequential processing) rather than via attention mask. Scaling by 1/√head_dim prevents softmax saturation. 4 heads split the 16-dim space into 4×4 subspaces, outputs concatenated and projected through attn_wo. KV cache is live in the computation graph during training — gradients flow through cached keys/values, unlike inference-only KV caches.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S8 Residual + MLP -->
+<div class="card open" id="s8">
+  <div class="ch" onclick="tog('s8')"><div class="cnum">lines 129–142</div><span style="font-size:19px">🔀</span><div class="ctitle">Thinking Deeper — and Keeping the Original</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">original = x                 <span class="cm"># save a copy before processing</span>
+x = expand(x)  <span class="cm"># zoom in: 16 numbers → 64 numbers (more room to think)</span>
+x = gate(x)    <span class="cm"># apply on/off switches</span>
+x = compress(x)<span class="cm"># zoom back out: 64 → 16</span>
+x = x + original  <span class="cm"># ← add the original back in (the skip connection)</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      After the attention step reads the past, there's a "thinking" step. The model temporarily expands from 16 numbers to 64 — giving itself more working space to process what it just read — then compresses back down to 16. But crucially, it also adds back the original 16 numbers it started with before the thinking step. This "add the original back" trick turns out to be essential for training deep models that actually learn.
+      <div class="ac"><div class="al">🛣️ The original is added back after each transformation</div>
+        <canvas id="cv_res" height="200"></canvas>
+        <button class="abtn" onclick="try{A.resid()}catch(e){console.error('resid:',e)}">▶ Animate Signal Flow</button>
+      </div>
+      <div class="analogy">You're editing a document. You make a copy first, then heavily revise the working draft. At the end, you merge your revisions back with the original. The layer only needs to write what it wants to change — the original is preserved by addition. This is why deep networks can be trained at all: gradients can flow backward through the addition directly to earlier layers without vanishing.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Pre-norm architecture (RMSNorm before sub-layer) — matches LLaMA/Mistral, trains more stably than post-norm GPT-2. 4× FFN expansion is an empirically established heuristic across GPT-2, LLaMA, PaLM. ReLU sparsity ~50% acts as implicit regularisation. Residual connection provides O(1) gradient path to any layer, solving vanishing gradients in deep networks (He et al., 2015).
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<div class="act"><span>ACT 4 · TRAINING — GETTING BETTER STEP BY STEP</span></div>
+
+<!-- S9 Loss -->
+<div class="card open" id="s9">
+  <div class="ch" onclick="tog('s9')"><div class="cnum">lines 148–165</div><span style="font-size:19px">📉</span><div class="ctitle">Measuring How Wrong the Model Is</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">scores = model_output  <span class="cm"># 27 scores, one per possible next letter</span>
+probs  = scores_to_percentages(scores)
+penalty = -log( probs[correct_letter] )
+<span class="cm"># Very confident about right answer → tiny penalty</span>
+<span class="cm"># Totally clueless → huge penalty</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      After the model makes a prediction, we need to measure how wrong it was. The model outputs a confidence score for all 27 possible next letters. We look at how much confidence it gave to the <em>correct</em> letter. If it was very confident and correct, the penalty is tiny. If it gave the correct letter almost zero confidence, the penalty is huge. We want this penalty number — called the "loss" — to get as small as possible over time.
+      <div class="ac"><div class="al">🎯 Drag to see how confidence changes the penalty</div>
+        <canvas id="cv_loss" height="170"></canvas>
+        <input type="range" id="slLoss" min="1" max="99" value="10" style="accent-color:var(--a4)">
+        <div id="lossOut" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dm);margin-top:4px"></div>
+      </div>
+      <div class="analogy">Like a quiz where you have to bet on your answer. If you bet 99% confidence on the right answer, you barely lose any points. If you bet only 1% on the right answer and it turns out to be correct, you lose a huge number of points. This forces the model to not just guess right, but to be confidently right.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      NLL loss with teacher forcing — model receives true previous token during training (not its own prediction). Average by n normalises for variable-length sequences. Softmax converts logits to a probability simplex; cross-entropy -log(p_target) measures KL divergence from the one-hot target. The computation graph spans the entire forward pass — backward() propagates through softmax, lm_head, all transformer layers, and into the embedding tables.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S10 Adam -->
+<div class="card open" id="s10">
+  <div class="ch" onclick="tog('s10')"><div class="cnum">lines 168–185</div><span style="font-size:19px">⚙️</span><div class="ctitle">Adam — The Smart Way to Fix Mistakes</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">m[i] = 0.85*m[i] + 0.15*gradient   <span class="cm"># running average of recent gradients (momentum)</span>
+v[i] = 0.99*v[i] + 0.01*gradient²  <span class="cm"># running average of squared gradients (tracks gradient size)</span>
+weight -= step_size * direction / wildness  <span class="cm"># step scaled by momentum / sqrt(variance) — larger for consistent gradients</span>
+weight.gradient = <span class="nm">0</span>  <span class="cm"># reset for next round</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      After measuring how wrong the model was and tracing which numbers caused it, we need to actually fix those numbers. The simplest approach would be to nudge everything by a fixed amount in the right direction. But Adam is smarter — it remembers recent corrections and adapts: bolder when consistently heading the same way, more cautious when bouncing around.
+      <br><br>
+      <strong>Important caveat:</strong> neither approach can <em>see</em> the full landscape. Both algorithms only feel the slope directly underfoot — one small step at a time. There could be a deeper valley just over a hill they never climb. This is why training can produce different results from different starting points, and why finding the true global best is an unsolved problem. In practice we just run it multiple times and pick the best result.
+      <div class="ac"><div class="al">🏔️ Finding <em>a</em> low point — not necessarily the lowest</div>
+        <canvas id="cv_adam" height="200"></canvas>
+        <button class="abtn" onclick="try{A.adam()}catch(e){console.error('adam:',e)}">▶ Compare Simple vs Adam</button>
+      </div>
+      <div class="analogy">Two hikers trying to find the lowest point in a foggy valley — neither can see the full terrain, only the slope right under their feet. The beginner takes the same size step every time and keeps overshooting. The experienced hiker (Adam) takes bigger steps on clear downhills and tiny careful steps near flat spots. Adam usually settles into a low point faster — but neither hiker can be sure they haven't missed a deeper valley hidden behind a hill they never crossed.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Standard Adam (Kingma & Ba, 2015) with bias correction. β₁=0.85 (vs standard 0.9) — faster gradient forgetting appropriate for small models. β₂=0.99 smooths over ~100 steps. Bias correction m̂=m/(1-β₁ᵗ) corrects for zero-initialisation in early steps. Linear LR decay from 0.01→0 over 1000 steps. No weight decay (AdamW) — regularisation not needed at 4K params. <code>p.grad=0</code> is manual zero-grad — must precede next backward.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<!-- S11 Training Loop -->
+<div class="card open" id="s11">
+  <div class="ch" onclick="tog('s11')"><div class="cnum">lines 148–186</div><span style="font-size:19px">🔄</span><div class="ctitle">The Training Loop — 1000 Rounds of Practice</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code"><span class="kw">for</span> step <span class="kw">in</span> range(<span class="nm">1000</span>):
+    name   = pick_one_name()          <span class="cm"># e.g. "emma"</span>
+    error  = predict_and_measure(name)<span class="cm"># how wrong were we?</span>
+    blame  = trace_backward(error)    <span class="cm"># who caused it?</span>
+    nudge  = adam_update(blame)       <span class="cm"># fix the responsible numbers</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      Training is just this 4-step loop repeated 1000 times. Each round, the model studies one name, measures how badly it predicted each next letter, computes a gradient for each of its 4,192 internal numbers — how much each one contributed to the mistake, and nudges all of them slightly in the right direction. After 1000 rounds of this, those 4,192 numbers have been gradually nudged toward capturing patterns in real names. At this tiny scale the results are rough — the model generates plausible-looking names, not polished ones — but the same process — at vastly larger scale — forms the foundation of every AI language model. (Modern assistants like Claude or ChatGPT add further training stages on top, but they all start here.)
+      <div class="ac"><div class="al">📊 The penalty score drops as the model learns</div>
+        <canvas id="cv_train" height="190"></canvas>
+        <button class="abtn" onclick="try{A.train()}catch(e){console.error('train:',e)}">▶ Simulate Training</button>
+      </div>
+      <div class="analogy">Learning to shoot free throws. Each attempt: take the shot (predict), see where it went (measure error), think about what you did wrong (trace blame), adjust your form slightly (nudge). After 1000 shots, your form has been incrementally refined by every attempt. The model is the same — each of the 4,192 numbers has been nudged 1000 times, once per round.</div>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Online learning, batch=1. Computation graph builds across the entire forward pass before backward() is called. O(T×d²) scalar ops per document — ~4 orders of magnitude slower than a PyTorch equivalent. KV cache reset each step. <code>step % len(docs)</code> cycling — each document seen at most once across 1000 steps (3% data coverage). No gradient clipping, no regularisation — capacity limitation dominates at this scale.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<div class="act"><span>ACT 5 · GENERATING NEW NAMES</span></div>
+
+<!-- S12 Inference -->
+<div class="card open" id="s12">
+  <div class="ch" onclick="tog('s12')"><div class="cnum">lines 188–205</div><span style="font-size:19px">✨</span><div class="ctitle">Temperature — Controlling Creative vs Safe</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <pre class="code">probs = adjust_confidence(model_output, temperature)
+next_letter = randomly_pick(probs)  <span class="cm"># weighted by confidence</span>
+<span class="kw">if</span> next_letter == STOP_SIGNAL: <span class="kw">break</span>  <span class="cm"># name is complete</span></pre>
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      After training, the model generates names one letter at a time. It starts with a "begin" signal, outputs a confidence score for every possible next letter, picks one (weighted by confidence), then feeds that letter back in as the starting point for the next step — repeating until it outputs a "done" signal. The temperature setting controls how bold or cautious the picks are.
+      <div class="ac"><div class="al">🌡️ Drag the slider — watch how temperature changes the choices</div>
+        <canvas id="cv_temp" height="195"></canvas>
+        <input type="range" id="slTemp" min="10" max="200" value="50" style="accent-color:var(--a2)">
+        <div id="tempOut" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dm);margin-top:4px"></div>
+      </div>
+      <table class="vtbl" style="margin-top:10px">
+        <tr><th>Temperature</th><th>Behaviour</th><th>Names you get</th></tr>
+        <tr><td>Low (0.1)</td><td>Almost always picks the most likely letter</td><td>Safe but boring, often repetitive</td></tr>
+        <tr><td><strong>Medium (0.5) ← used here</strong></td><td>Mostly picks likely letters, occasionally adventurous</td><td>Varied but still plausible</td></tr>
+        <tr><td>High (2.0)</td><td>Almost random picks</td><td>Creative but often nonsense</td></tr>
+      </table>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+      Temperature T rescales logits before softmax: P_T(x) ∝ exp(logit/T). Division before softmax is equivalent to raising probabilities to power 1/T. As T→0: argmax (greedy decoding). Same code path as training — KV cache accumulates identically, no separate inference mode. No top-k or nucleus sampling — adequate for T≤15 sequences with small vocab.
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<div class="act"><span>THE BIG PICTURE</span></div>
+
+<!-- S13 Pipeline -->
+<div class="card open" id="s13">
+  <div class="ch" onclick="tog('s13')"><div class="cnum">summary</div><span style="font-size:19px">🗺️</span><div class="ctitle">The Full Picture — End to End</div><div class="chev">▾</div></div>
+  <div class="cb">
+  <div class="expl"><div class="ap active" data-lv="all">
+
+    <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
+      <div class="ac"><div class="al">🏭 One signal flowing through all stages</div>
+        <canvas id="cv_pipe" height="280"></canvas>
+        <button class="abtn" onclick="try{A.pipeline()}catch(e){console.error('pipeline:',e)}">▶ Run Full Pipeline</button>
+      </div>
+      <table class="vtbl" style="margin-top:12px">
+        <tr><th>Step</th><th>What happens</th><th>Think of it as...</th></tr>
+        <tr><td>Letters → Numbers</td><td>Convert text to something the computer can work with</td><td>Morse code</td></tr>
+        <tr><td>Give letters identity</td><td>Replace each number with a rich description</td><td>Name badge → full profile</td></tr>
+        <tr><td>Read the past</td><td>Decide which previous letters matter most right now</td><td>Spotlight on relevant history</td></tr>
+        <tr><td>Think</td><td>Process what was just read</td><td>The "digest and decide" step</td></tr>
+        <tr><td>Measure the mistake</td><td>How wrong was the prediction?</td><td>Teacher's red pen</td></tr>
+        <tr><td>Trace the blame</td><td>Which numbers caused the mistake?</td><td>Audit trail</td></tr>
+        <tr><td>Fix the numbers</td><td>Nudge everything slightly toward being less wrong</td><td>GPS rerouting after a wrong turn</td></tr>
+      </table>
+      <br><strong>The key insight:</strong> "Everything else is just efficiency." — Andrej Karpathy.<br><br>
+      Every AI you've used — ChatGPT, Claude, Gemini — is built on this same core idea: predict the next character (or token, at larger scale), measure the error, trace the blame, nudge the numbers. The architectures have grown far more complex, but the fundamental loop is identical. The only real difference is scale — hundreds of billions of numbers instead of 4,192.
+      <br><br><strong>Karpathy's point: everything else is just efficiency.</strong>
+    </div></div>
+
+    <div class="lb ltc"><div class="lh">💻 Technical</div><div class="lbody">
+<pre style="font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.9;color:#cdd6f4;background:transparent">microgpt.py — 200 lines, zero dependencies
+├── Tokenizer       char→int, BOS=26, vocab=27
+├── Autograd        scalar DAG, reverse-mode AD
+├── Architecture
+│   ├── tok_emb[27×16] + pos_emb[16×16]
+│   └── × 1 layer:
+│       ├── Pre-norm (RMSNorm)
+│       ├── Multi-head causal self-attn (4 heads, KV cache)
+│       ├── Residual add
+│       ├── Pre-norm + FFN: 16→64→ReLU→16
+│       └── Residual add → lm_head[27×16]
+├── Training        cross-entropy, teacher forcing, 1000 steps
+├── Optimizer       Adam β₁=0.85 β₂=0.99, linear LR decay
+└── Inference       temperature=0.5, ancestral sampling
+
+4,192 params total. GPT-3 has 175,000,000,000.
+Same core algorithm. Different scale, depth, and engineering.
+The training loop, attention mechanism, and gradient descent are identical in principle.</pre>
+    </div></div>
+
+  </div></div></div>
+</div>
+
+<div style="height:40px"></div>
+</div>
+
+<div style="background:#0a0c10;border-top:1px solid #252a3a;padding:40px 24px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#64748b">
+  <div style="max-width:900px;margin:0 auto">
+    <div style="margin-bottom:8px;color:#3ecfb2;letter-spacing:2px;text-transform:uppercase;font-size:10px">200 Lines · 4,192 Parameters · Zero Dependencies</div>
+    <div style="color:#4a5068;font-size:10px;margin-bottom:18px;letter-spacing:1px">Everything else is just efficiency — Andrej Karpathy</div>
+    <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap">
+      <a href="https://gist.github.com/karpathy/8627fe009c40f57531cb18360106ce95" target="_blank" style="color:#818cf8;text-decoration:none">microgpt.py source</a>
+      <a href="http://karpathy.github.io/2026/02/12/microgpt/" target="_blank" style="color:#818cf8;text-decoration:none">Karpathy's blog</a>
+      <a href="https://colab.research.google.com/drive/1vyN5zo6rqUp_dYNbT4Yrco66zuWCZKoN?usp=sharing" target="_blank" style="color:#818cf8;text-decoration:none">Run on Colab</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// Polyfill for roundRect — needed for Safari < 15.4 and older Android WebViews
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    if(typeof r==='number') r={tl:r,tr:r,br:r,bl:r};
+    else r=Object.assign({tl:0,tr:0,br:0,bl:0},r);
+    this.beginPath();
+    this.moveTo(x+r.tl,y);
+    this.lineTo(x+w-r.tr,y);
+    this.quadraticCurveTo(x+w,y,x+w,y+r.tr);
+    this.lineTo(x+w,y+h-r.br);
+    this.quadraticCurveTo(x+w,y+h,x+w-r.br,y+h);
+    this.lineTo(x+r.bl,y+h);
+    this.quadraticCurveTo(x,y+h,x,y+h-r.bl);
+    this.lineTo(x,y+r.tl);
+    this.quadraticCurveTo(x,y,x+r.tl,y);
+    this.closePath();
+    return this;
+  };
+}
+
+const CC={bg:'#0b0f1a',s2:'#1a2235',bd:'#1e293b',ac:'#4f8ef7',a2:'#818cf8',a3:'#34d399',a4:'#f472b6',tx:'#e2e8f0',dm:'#64748b'};
+const RAF={};
+function gc(id){
+  const el=document.getElementById(id); if(!el)return null;
+  if(!el.dataset.h) el.dataset.h=el.getAttribute('height')||'180';
+  const h=parseInt(el.dataset.h);
+  el.style.height=h+'px'; el.style.display='block';
+  const dpr=window.devicePixelRatio||1;
+  const par=el.parentElement||el.closest('.ac')||document.body; const w=Math.max(200,(par.clientWidth||320)-26);
+  el.width=w*dpr; el.height=h*dpr; el.style.width=w+'px';
+  const c=el.getContext('2d'); c.scale(dpr,dpr); c.W=w; c.H=h; return c;
+}
+const eo=t=>1-Math.pow(1-t,3);
+const ei=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pg=(t,s,d=.3)=>eo(cl((t-s)/d,0,1));
+function stop(k){if(RAF[k]){cancelAnimationFrame(RAF[k]);RAF[k]=null;}}
+
+const A={
+  seed(){
+    stop('seed'); const c=gc('cv_seed'); if(!c)return;
+    const rows=[{s:42,v:[.031,-.074,.089,.012,-.052,.067,-.031]},{s:42,v:[.031,-.074,.089,.012,-.052,.067,-.031]},{s:99,v:[.112,.045,-.083,.091,.022,-.064,.037]}];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      rows.forEach((r,ri)=>{
+        const y=20+ri*28; c.font='11px IBM Plex Mono'; c.fillStyle=ri<2?CC.a3:CC.a4;
+        c.fillText(`start=${r.s}`,6,y);
+        r.v.slice(0,5).forEach((v,vi)=>{
+          const p=pg(t,vi*.15+ri*.18); if(p<=0)return;
+          c.globalAlpha=p; c.fillStyle=v>0?CC.a3:CC.a4; c.font='11px IBM Plex Mono';
+          const colW=Math.floor((c.W-90)/5);
+          const vx=88+vi*colW; c.fillText(v.toFixed(3),vx,y); c.globalAlpha=1;
+        });
+        if(t>0.8+ri*.18){
+          c.globalAlpha=pg(t,0.8+ri*.18,.3); c.fillStyle=CC.dm; c.font='10px IBM Plex Mono';
+          c.fillText('...', Math.min(88+5*Math.floor((c.W-90)/5), c.W-20), y); c.globalAlpha=1;
+        }
+      });
+      if(t>1.3){
+        c.globalAlpha=pg(t,1.3,.4); c.fillStyle=CC.a3; c.font='600 12px Inter'; c.textAlign='center';
+        const stxt='✓ Same start = identical results every run'; c.font='600 11px Inter'; c.fillText(stxt,c.W/2,c.H-10);
+        c.textAlign='left'; c.globalAlpha=1;
+      }
+      t+=.014; if(t<5)RAF['seed']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  shuffle(){
+    stop('shuf'); const c=gc('cv_shuf'); if(!c)return;
+    const b=['aiden','abby','aaron','bella','blake','brianna'];
+    const a=['blake','aiden','brianna','abby','aaron','bella'];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      const half=Math.floor(c.W/2)-6;
+      const cols=3, bw=Math.floor((half-14)/cols)-4;
+      const hw=c.W/2+2;
+      c.font='9px IBM Plex Mono'; c.fillStyle=CC.dm;
+      c.fillText('BEFORE',6,12); c.fillText(t>.5?'AFTER':'mixing...',hw+4,12);
+      b.forEach((n,i)=>{
+        const bx=6+(i%cols)*(bw+4),by=18+Math.floor(i/3)*34;
+        c.fillStyle=CC.s2; c.beginPath(); c.roundRect(bx,by,bw,24,4); c.fill();
+        c.fillStyle=CC.a3; c.font='11px IBM Plex Mono';
+        c.fillText(n.slice(0,6),bx+5,by+16);
+      });
+      a.forEach((n,i)=>{
+        const p=pg(t,.25+i*.1); if(p<=0)return;
+        const bx=hw+4+(i%cols)*(bw+4),by=18+Math.floor(i/3)*34;
+        c.globalAlpha=p; c.fillStyle=CC.s2; c.beginPath(); c.roundRect(bx,by,bw,24,4); c.fill();
+        c.fillStyle=CC.ac; c.font='11px IBM Plex Mono';
+        c.fillText(n.slice(0,6),bx+5,by+16); c.globalAlpha=1;
+      });
+      if(t>.1){
+        const ap=pg(t,.1); c.globalAlpha=ap; c.strokeStyle=CC.dm; c.lineWidth=1.5;
+        const ax=hw-3,ay=c.H/2;
+        c.beginPath(); c.moveTo(ax-10,ay); c.lineTo(ax+2,ay); c.moveTo(ax-2,ay-5); c.lineTo(ax+2,ay); c.lineTo(ax-2,ay+5); c.stroke(); c.globalAlpha=1;
+      }
+      t+=.013; if(t<5)RAF['shuf']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  token(){
+    stop('tok'); const c=gc('cv_tok'); if(!c)return;
+    const lbs=['🔔','e','m','m','a','🔔'],ids=[26,4,12,12,0,26];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      c.font='13px IBM Plex Mono'; c.fillStyle=CC.tx; c.textAlign='center'; c.fillText('"emma"',c.W/2,18); c.textAlign='left';
+      if(t>.2){
+        c.globalAlpha=pg(t,.2,.3); c.strokeStyle=CC.dm; c.lineWidth=1.2;
+        c.beginPath(); c.moveTo(c.W/2,24); c.lineTo(c.W/2,48); c.moveTo(c.W/2-4,44); c.lineTo(c.W/2,48); c.lineTo(c.W/2+4,44); c.stroke();
+        c.fillStyle=CC.dm; c.font='10px Inter'; c.textAlign='center'; c.fillText('convert to numbers',c.W/2,42); c.textAlign='left'; c.globalAlpha=1;
+      }
+      const n=lbs.length,bw=Math.min(46,Math.floor((c.W-20)/n)-4),tot=n*(bw+4),sx=(c.W-tot)/2;
+      lbs.forEach((lb,i)=>{
+        const p=pg(t,.4+i*.18); if(p<=0)return;
+        const bx=sx+i*(bw+4),by=56,sp=(i===0||i===n-1);
+        c.globalAlpha=p;
+        c.fillStyle=sp?'rgba(124,106,247,.15)':'rgba(62,207,178,.1)'; c.strokeStyle=sp?CC.a2:CC.a3; c.lineWidth=1.2;
+        c.beginPath(); c.roundRect(bx,by,bw,52,6); c.fill(); c.stroke();
+        c.fillStyle=CC.tx; c.font='16px Inter'; c.textAlign='center'; c.fillText(lb,bx+bw/2,by+24);
+        c.fillStyle=CC.dm; c.font='9px IBM Plex Mono'; c.fillText('id='+ids[i],bx+bw/2,by+42);
+        c.textAlign='left'; c.globalAlpha=1;
+      });
+      if(t>1.5){
+        c.globalAlpha=pg(t,1.5,.4); c.fillStyle=CC.a3; c.font='11px IBM Plex Mono'; c.textAlign='center';
+        c.fillText('[26, 4, 12, 12, 0, 26]  — the model only sees these numbers',c.W/2,c.H-10);
+        c.textAlign='left'; c.globalAlpha=1;
+      }
+      t+=.015; if(t<5)RAF['tok']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  cgraph(){
+    stop('cg'); const c=gc('cv_cg'); if(!c)return;
+    // Layout computed from canvas width — always centred
+    const W=c.W, H=c.H;
+    const cx=W/2;
+    // Node positions as fractions of W/H, centred around cx
+    const ns=[
+      {id:'a',  lb:'a=3',    rx:-.38, ry:.82, col:CC.a3},
+      {id:'b',  lb:'b=4',    rx:-.10, ry:.82, col:CC.a3},
+      {id:'c',  lb:'c=2',    rx:.22,  ry:.82, col:CC.a3},
+      {id:'ab', lb:'a×b=12', rx:-.24, ry:.46, col:CC.ac},
+      {id:'out',lb:'out=14', rx:-.04, ry:.10, col:CC.a2},
+    ];
+    const gp=id=>{const n=ns.find(n=>n.id===id);return{x:cx+n.rx*W*0.7,y:n.ry*H};};
+    const es=[
+      {f:'a',  t:'ab', lg:'∂=4', side:-1},
+      {f:'b',  t:'ab', lg:'∂=3', side: 1},
+      {f:'ab', t:'out',lg:'∂=1', side:-1},
+      {f:'c',  t:'out',lg:'∂=1', side: 1},
+    ];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,W,H); c.fillStyle=CC.bg; c.fillRect(0,0,W,H);
+      // Draw edges first
+      es.forEach((e,i)=>{
+        const p=pg(t,.15+i*.1); if(p<=0)return;
+        const f=gp(e.f), t2=gp(e.t);
+        c.globalAlpha=p*.5; c.strokeStyle=CC.dm; c.lineWidth=1.2; c.setLineDash([4,3]);
+        c.beginPath(); c.moveTo(f.x,f.y-13); c.lineTo(t2.x,t2.y+13); c.stroke(); c.setLineDash([]);
+        // Label offset sideways so it doesn't overlap the line midpoint
+        const mx=(f.x+t2.x)/2, my=(f.y+t2.y)/2;
+        const offX=e.side*22; // push label left or right of line midpoint
+        c.globalAlpha=p;
+        c.fillStyle=CC.ac; c.font='500 9px IBM Plex Mono'; c.textAlign='center';
+        c.fillText(e.lg, mx+offX, my);
+        c.textAlign='left'; c.globalAlpha=1;
+      });
+      // Draw nodes on top of edges
+      ns.forEach((n,i)=>{
+        const p=pg(t,i*.11); if(p<=0)return;
+        const pos=gp(n.id);
+        c.globalAlpha=p;
+        c.fillStyle=n.col+'20'; c.strokeStyle=n.col; c.lineWidth=1.5;
+        c.beginPath(); c.roundRect(pos.x-38,pos.y-13,76,26,6); c.fill(); c.stroke();
+        c.fillStyle=n.col; c.font='600 11px IBM Plex Mono'; c.textAlign='center';
+        c.fillText(n.lb,pos.x,pos.y+4); c.textAlign='left'; c.globalAlpha=1;
+      });
+      // Bottom caption — fixed position, well clear of bottom nodes
+      if(t>1.2){
+        c.globalAlpha=pg(t,1.2,.4); c.fillStyle=CC.dm; c.font='10px Inter'; c.textAlign='center';
+        c.fillText('Edge labels show local sensitivity (∂output/∂input)',W/2,H-8);
+        c.textAlign='left'; c.globalAlpha=1;
+      }
+      t+=.013; if(t<6)RAF['cg']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  backprop(){
+    stop('bp'); const c=gc('cv_bp'); if(!c)return;
+    const ns=[{id:'w1',lb:'w₁=0.5',px:.1,py:.78,gd:'0.8'},{id:'w2',lb:'w₂=-0.3',px:.38,py:.78,gd:'-0.4'},{id:'x2',lb:'x=2.0',px:.66,py:.78,gd:'0.2'},{id:'h',lb:'h=0.7',px:.24,py:.46,gd:'0.6'},{id:'loss',lb:'error=2.1',px:.5,py:.1,gd:'1.0',sp:true}];
+    const es=[{f:'w1',t:'h'},{f:'w2',t:'h'},{f:'h',t:'loss'},{f:'x2',t:'loss'}];
+    const gp2=id=>{const n=ns.find(n=>n.id===id);return{x:n.px*c.W,y:n.py*c.H};};
+    const wo=['loss','h','x2','w1','w2'];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      es.forEach(e=>{
+        const f=gp2(e.f),t2=gp2(e.t); c.strokeStyle=CC.bd; c.lineWidth=1.5; c.setLineDash([3,4]);
+        c.beginPath(); c.moveTo(f.x,f.y-12); c.lineTo(t2.x,t2.y+12); c.stroke(); c.setLineDash([]);
+      });
+      if(t>.3){
+        es.forEach((e,ei)=>{
+          const f=gp2(e.f),t2=gp2(e.t);
+          const pt=cl((t-.3-ei*.08)/1.8,0,1); if(pt<=0||pt>=1)return;
+          const wx=t2.x+(f.x-t2.x)*eo(pt), wy=(t2.y-12)+(f.y+12-(t2.y-12))*eo(pt);
+          const gr=c.createRadialGradient(wx,wy,0,wx,wy,9);
+          gr.addColorStop(0,CC.a4); gr.addColorStop(1,'transparent');
+          c.fillStyle=gr; c.beginPath(); c.arc(wx,wy,9,0,Math.PI*2); c.fill();
+          c.fillStyle=CC.a4; c.beginPath(); c.arc(wx,wy,4,0,Math.PI*2); c.fill();
+        });
+      }
+      ns.forEach(n=>{
+        const pos=gp2(n.id),gi=wo.indexOf(n.id),gv=pg(t,.12+gi*.28);
+        c.fillStyle=n.sp?CC.a2+'22':CC.s2; c.strokeStyle=n.sp?CC.a2:(gv>.5?CC.a4:CC.bd); c.lineWidth=n.sp?2:1.5;
+        c.beginPath(); c.roundRect(pos.x-38,pos.y-13,76,26,6); c.fill(); c.stroke();
+        c.fillStyle=n.sp?CC.a2:CC.tx; c.font='11px IBM Plex Mono'; c.textAlign='center'; c.fillText(n.lb,pos.x,pos.y+4);
+        if(gv>0){c.globalAlpha=gv;c.fillStyle=CC.a4;c.font='500 9px IBM Plex Mono';c.fillText('∂='+n.gd,pos.x,pos.y+28);c.globalAlpha=1;}
+        c.textAlign='left';
+      });
+      if(t>2.3){c.globalAlpha=pg(t,2.3,.4);c.fillStyle=CC.a4;c.font='11px Inter';c.textAlign='center';c.fillText('✓ Every number now knows exactly how responsible it was',c.W/2,c.H-12);c.textAlign='left';c.globalAlpha=1;}
+      t+=.012; if(t<7)RAF['bp']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  embed(){
+    stop('emb'); const c=gc('cv_emb'); if(!c)return;
+    const emb=[.031,-.074,.089,.012,-.052,.067,-.031,.045,.078,-.019,.062,-.041,.093,.007,-.058,.034];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      c.font='9px IBM Plex Mono'; c.fillStyle=CC.dm; c.fillText('Letter identity table — 27 rows (one per letter/symbol), 16 numbers each',6,11);
+      const rh=22,tw=c.W-14,rows=7;
+      for(let r=0;r<rows;r++){
+        const y=15+r*rh,isT=(r===4),hp=isT?pg(t,0,.5):0;
+        c.fillStyle=isT?`rgba(62,207,178,${.12*hp})`:CC.s2+'44'; c.strokeStyle=isT?CC.a3+Math.floor(hp*255).toString(16).padStart(2,'0'):CC.bd; c.lineWidth=isT?1.5:.5;
+        c.beginPath(); c.roundRect(6,y,tw,rh-3,3); c.fill(); c.stroke();
+        c.fillStyle=isT?CC.a3:CC.dm; c.font='9px IBM Plex Mono'; c.fillText(isT?`row 4 (letter 'e') →`:`row ${r}`,10,y+13);
+        if(isT&&hp>.4){
+          const bw=(tw-100)/8;
+          emb.slice(0,8).forEach((v,i)=>{
+            const bp=pg(t,.28+i*.05); const bx=6+100+i*bw;
+            c.globalAlpha=bp; c.fillStyle=v>0?`rgba(62,207,178,${Math.abs(v)*7})`:`rgba(240,98,146,${Math.abs(v)*7})`;
+            c.fillRect(bx,y+2,bw-2,rh-6); c.fillStyle=CC.tx; c.font='9px IBM Plex Mono'; c.textAlign='center'; c.fillText(v.toFixed(2),bx+bw/2,y+12); c.textAlign='left'; c.globalAlpha=1;
+          });
+          if(t>.9){c.globalAlpha=pg(t,.9);c.fillStyle=CC.dm;c.font='9px IBM Plex Mono';c.fillText('...+8',6+100+8*((tw-100)/8)+2,y+12);c.globalAlpha=1;}
+        }
+      }
+      if(t>1.4){c.globalAlpha=pg(t,1.4,.4);c.fillStyle=CC.ac;c.font='11px IBM Plex Mono';c.fillText("combined = letter 'e' profile + position profile",6,c.H-10);c.globalAlpha=1;}
+      t+=.014; if(t<5)RAF['emb']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  attn(){
+    stop('at'); const c=gc('cv_attn'); if(!c)return;
+    const tks=['🔔','b','r','e','n','d','a','n'];
+    const wts=[[1,0,0,0,0,0,0,0],[.4,.6,0,0,0,0,0,0],[.2,.4,.4,0,0,0,0,0],[.1,.25,.35,.3,0,0,0,0],[.05,.1,.2,.35,.3,0,0,0],[.05,.08,.12,.2,.3,.25,0,0],[.04,.06,.1,.15,.25,.25,.15,0],[.04,.05,.09,.12,.18,.22,.2,.1]];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      const step=Math.floor(t/1.4)%(tks.length-1)+1, lt=(t%1.4)/1.4;
+      c.font='10px IBM Plex Mono'; c.fillStyle=CC.dm; c.textAlign='center';
+      c.fillText(`Predicting next letter after "${tks.slice(1,step+1).join('')}"`,c.W/2,12); c.textAlign='left';
+      const bw=Math.min(38,Math.floor((c.W-20)/tks.length)-4),tot=tks.length*(bw+4),sx=(c.W-tot)/2,ty=20;
+      tks.forEach((tk,i)=>{
+        const isCur=(i===step),isPast=(i<step),aw=isPast?wts[step][i]*ei(lt):0;
+        c.globalAlpha=isPast||isCur?1:.25;
+        c.fillStyle=isCur?CC.a2+'33':`rgba(62,207,178,${aw*.35})`;
+        c.strokeStyle=isCur?CC.a2:(isPast?`rgba(62,207,178,${.3+aw*.7})`:CC.bd); c.lineWidth=isCur?2:1.2;
+        const bx=sx+i*(bw+4);
+        c.beginPath(); c.roundRect(bx,ty,bw,32,5); c.fill(); c.stroke();
+        c.fillStyle=isCur?CC.a2:(isPast?CC.a3:CC.dm); c.font='13px Inter'; c.textAlign='center'; c.fillText(tk,bx+bw/2,ty+20); c.textAlign='left'; c.globalAlpha=1;
+        if(isPast&&aw>0){
+          const bh=aw*38*ei(lt);
+          c.fillStyle=CC.a3+'99'; c.fillRect(bx+3,ty+36,bw-6,bh);
+          c.fillStyle=CC.a3; c.font='9px IBM Plex Mono'; c.textAlign='center'; c.fillText((aw*100).toFixed(0)+'%',bx+bw/2,ty+40+bh); c.textAlign='left';
+        }
+      });
+      c.fillStyle=CC.dm; c.font='10px Inter'; c.textAlign='center'; c.fillText('Bar height = how much attention is paid to that past letter',c.W/2,c.H-8); c.textAlign='left';
+      t+=.01; RAF['at']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  attnmat(){
+    stop('am'); const c=gc('cv_amat'); if(!c)return;
+    const tks=['🔔','b','r','e','n','d'];
+    const mat=[[1,0,0,0,0,0],[.4,.6,0,0,0,0],[.2,.4,.4,0,0,0],[.1,.3,.4,.2,0,0],[.05,.2,.3,.3,.15,0],[.05,.1,.15,.25,.3,.15]];
+    const n=tks.length; let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      // Fixed: moved labels to avoid overlap — columns on top, rows on left
+      const cs=Math.min(30,(c.W-90)/n),ox=62,oy=36;
+      c.font='9px IBM Plex Mono'; c.fillStyle=CC.dm;
+      c.textAlign='center';
+      c.fillText('← which letter is asking?',ox+n*cs/2,14);
+      c.textAlign='left';
+      c.save(); c.translate(12,oy+n*cs/2+10); c.rotate(-Math.PI/2);
+      c.textAlign='center'; c.fillText('which letter is answering? →',0,0); c.restore();
+      // Column headers (letters across top)
+      tks.forEach((tk,i)=>{
+        c.fillStyle=CC.dm; c.font='13px Inter'; c.textAlign='center';
+        c.fillText(tk,ox+i*cs+cs/2,oy-8); c.textAlign='left';
+      });
+      for(let r=0;r<n;r++){
+        // Row headers (letters down left)
+        c.fillStyle=CC.tx; c.font='13px Inter'; c.textAlign='right';
+        c.fillText(tks[r],ox-6,oy+r*cs+cs/2+4); c.textAlign='left';
+        for(let col=0;col<n;col++){
+          const v=mat[r][col],p=pg(t,(r+col)*.06,.4);
+          const x=ox+col*cs,y=oy+r*cs;
+          c.globalAlpha=p;
+          c.fillStyle=v>0?`rgba(62,207,178,${.1+v*.85})`:'rgba(20,23,32,.8)';
+          c.fillRect(x,y,cs-2,cs-2);
+          if(v>.05){c.fillStyle=v>.35?CC.bg:CC.a3;c.font='9px IBM Plex Mono';c.textAlign='center';c.fillText((v*100).toFixed(0),x+cs/2,y+cs/2+3);c.textAlign='left';}
+          c.globalAlpha=1;
+        }
+      }
+      if(t>1.6){
+        const noteY=Math.min(oy+n*cs+16, c.H-8);
+        c.globalAlpha=pg(t,1.6,.4);c.fillStyle=CC.a4;c.font='10px Inter';
+        c.fillText('Empty = cannot look at future letters',ox,noteY);c.globalAlpha=1;
+      }
+      t+=.013; if(t<5)RAF['am']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  resid(){
+    stop('res'); const c=gc('cv_res'); if(!c)return;
+    const stages=[{lb:'input',y:.08,col:CC.a3},{lb:'normalise',y:.26,col:CC.dm},{lb:'expand: 16→64',y:.43,col:CC.ac},{lb:'on/off gates',y:.57,col:CC.a4},{lb:'compress: 64→16',y:.71,col:CC.ac},{lb:'combine with original',y:.90,col:CC.a2,sp:true}];
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      const cx=c.W*.5;
+      stages.forEach((s,i)=>{
+        const p=pg(t,i*.13); const y=s.y*c.H; const bw=s.sp?180:155;
+        c.globalAlpha=p; c.fillStyle=s.sp?CC.a2+'22':CC.s2; c.strokeStyle=s.col; c.lineWidth=s.sp?2:1.3;
+        c.beginPath(); c.roundRect(cx-bw/2,y-12,bw,24,5); c.fill(); c.stroke();
+        c.fillStyle=s.col; c.font=s.sp?'bold 11px IBM Plex Mono':'11px IBM Plex Mono'; c.textAlign='center'; c.fillText(s.lb,cx,y+4); c.textAlign='left'; c.globalAlpha=1;
+      });
+      if(t>.7){
+        c.globalAlpha=pg(t,.7,.4); c.strokeStyle=CC.dm; c.lineWidth=1.3; c.setLineDash([3,4]);
+        c.beginPath(); c.moveTo(cx,stages[0].y*c.H+12); c.lineTo(cx,stages[stages.length-1].y*c.H-12); c.stroke(); c.setLineDash([]); c.globalAlpha=1;
+      }
+      if(t>1.0){
+        const ap=pg(t,1.0,.5); c.globalAlpha=ap; c.strokeStyle=CC.a3; c.lineWidth=2.5;
+        const y1=stages[0].y*c.H, y2=stages[stages.length-1].y*c.H;
+        // Arc from right edge of widest box — ensure at least 32px of arc room
+        const boxEdge=cx+82;
+        const arcPeak=Math.min(boxEdge+36, c.W-6);
+        c.beginPath(); c.moveTo(boxEdge,y1); c.bezierCurveTo(arcPeak+10,y1,arcPeak+10,y2,boxEdge,y2); c.stroke();
+        // Label always drawn — positioned on the arc peak, rotated
+        const lx=(boxEdge+arcPeak)/2+14;
+        const ly=(y1+y2)/2;
+        c.save(); c.translate(lx, ly); c.rotate(-Math.PI/2);
+        c.fillStyle=CC.a3+'dd'; c.font='500 9px IBM Plex Mono'; c.textAlign='center';
+        c.fillText('skip connection', 0, 4);
+        c.restore();
+        c.textAlign='left'; c.globalAlpha=1;
+      }
+      if(t>1.5){
+        const pt=((t-1.5)%1.4)/1.4; const y1=stages[0].y*c.H, y2=stages[stages.length-1].y*c.H;
+        const boxEdge2=cx+82, arcPeak2=Math.min(boxEdge2+36,c.W-6);
+        const ry=y1+(y2-y1)*ei(pt);
+        const rx2=boxEdge2+(arcPeak2+10-boxEdge2)*Math.sin(Math.PI*ei(pt));
+        const gr=c.createRadialGradient(rx2,ry,0,rx2,ry,8);
+        gr.addColorStop(0,CC.a3); gr.addColorStop(1,'transparent');
+        c.fillStyle=gr; c.beginPath(); c.arc(rx2,ry,8,0,Math.PI*2); c.fill();
+        c.fillStyle=CC.a3; c.beginPath(); c.arc(rx2,ry,4,0,Math.PI*2); c.fill();
+      }
+      t+=.011; if(t<8)RAF['res']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  adam(){
+    stop('ad'); const c=gc('cv_adam'); if(!c)return;
+
+    function L(x){
+      return 0.015*(x-65)*(x-65)
+           + 6*Math.sin(x*0.18)
+           + 3*Math.sin(x*0.4+0.5)
+           + 3;
+    }
+
+    const N=80;
+    const sgdPath=[]; let sx=8;
+    for(let i=0;i<N;i++){
+      const g=(L(sx+0.2)-L(sx-0.2))/0.4;
+      sx=Math.max(3,Math.min(97,sx-8.0*g));
+      sgdPath.push(sx);
+    }
+
+    const adamPath=[]; let ax=8,am=0,av=1e-6,ast=0;
+    for(let i=0;i<N;i++){
+      const g=(L(ax+0.2)-L(ax-0.2))/0.4;
+      ast++; am=0.9*am+0.1*g; av=0.999*av+0.001*g*g;
+      const mh=am/(1-Math.pow(0.9,ast));
+      const vh=av/(1-Math.pow(0.999,ast));
+      ax=Math.max(3,Math.min(97,ax-5.0*mh/(Math.sqrt(vh)+1e-8)));
+      adamPath.push(ax);
+    }
+
+    let lMin=999,lMax=-999;
+    for(let x=0;x<=100;x+=0.5){const y=L(x);if(y<lMin)lMin=y;if(y>lMax)lMax=y;}
+
+    // Use a continuous float position instead of integer steps
+    // This gives perfectly smooth motion at 60fps with no discrete jumps
+    // Progress goes 0→N over DURATION seconds, then pauses, then loops
+    const DURATION=14; // seconds for full animation
+    const PAUSE=2;     // seconds pause at end
+    const CYCLE=DURATION+PAUSE;
+    let startTime=null;
+
+    const draw=(ts)=>{
+      if(!startTime) startTime=ts;
+      const elapsed=((ts-startTime)/1000)%CYCLE;
+      // Smooth ease-in-out progress over DURATION seconds
+      const rawProg=Math.min(elapsed/DURATION,1.0);
+      // Use ease so it starts a bit fast (exciting) then slows as Adam converges
+      const prog=rawProg<1?rawProg*(2-rawProg):1; // ease-out
+      const floatStep=prog*(N-1); // continuous position 0..(N-1)
+      const stepA=Math.min(N-2,Math.floor(floatStep));
+      const frac=floatStep-stepA; // 0..1 interpolation between stepA and stepA+1
+
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+
+      const PL=10,PR=10,PT=40,PB=26;
+      const GW=c.W-PL-PR, GH=c.H-PT-PB;
+      const toX=x=>PL+(x/100)*GW;
+      const toY=lv=>PT+GH*(1-(lv-lMin)/(lMax-lMin));
+
+      // Landscape fill
+      c.fillStyle='rgba(37,42,58,0.55)';
+      c.beginPath();
+      for(let x=0;x<=100;x++){
+        x===0?c.moveTo(toX(x),toY(L(x))):c.lineTo(toX(x),toY(L(x)));
+      }
+      c.lineTo(toX(100),c.H); c.lineTo(toX(0),c.H); c.closePath(); c.fill();
+
+      // Landscape line
+      c.strokeStyle='#4a5070'; c.lineWidth=1.8;
+      c.beginPath();
+      for(let x=0;x<=100;x++){
+        x===0?c.moveTo(toX(x),toY(L(x))):c.lineTo(toX(x),toY(L(x)));
+      }
+      c.stroke();
+
+      // Star
+      const goalX=toX(59), goalY=toY(L(59));
+      c.fillStyle=CC.a3+'cc'; c.font='10px Inter'; c.textAlign='left';
+      c.fillText('⭐ a minimum', goalX+7, goalY-5);
+
+      const visSteps=stepA+2; // draw trail up to current + next
+
+      // SGD trail
+      c.strokeStyle=CC.a4; c.lineWidth=1.8; c.globalAlpha=0.6;
+      c.beginPath();
+      for(let i=0;i<visSteps&&i<N;i++){
+        i===0?c.moveTo(toX(sgdPath[i]),toY(L(sgdPath[i]))):
+              c.lineTo(toX(sgdPath[i]),toY(L(sgdPath[i])));
+      }
+      c.stroke(); c.globalAlpha=1;
+
+      // SGD dot — interpolated position
+      const sx1=sgdPath[stepA], sx2b=sgdPath[Math.min(stepA+1,N-1)];
+      const sxPos=sx1+(sx2b-sx1)*frac;
+      const sdx=toX(sxPos), sdy=toY(L(sxPos));
+      const sg2=c.createRadialGradient(sdx,sdy,0,sdx,sdy,13);
+      sg2.addColorStop(0,CC.a4+'88'); sg2.addColorStop(1,'transparent');
+      c.fillStyle=sg2; c.beginPath(); c.arc(sdx,sdy,13,0,Math.PI*2); c.fill();
+      c.fillStyle=CC.a4; c.beginPath(); c.arc(sdx,sdy,6,0,Math.PI*2); c.fill();
+
+      // Adam trail
+      c.strokeStyle=CC.a3; c.lineWidth=2.5; c.globalAlpha=0.8;
+      c.beginPath();
+      for(let i=0;i<visSteps&&i<N;i++){
+        i===0?c.moveTo(toX(adamPath[i]),toY(L(adamPath[i]))):
+              c.lineTo(toX(adamPath[i]),toY(L(adamPath[i])));
+      }
+      c.stroke(); c.globalAlpha=1;
+
+      // Adam dot — interpolated position
+      const ax1=adamPath[stepA], ax2b=adamPath[Math.min(stepA+1,N-1)];
+      const axPos=ax1+(ax2b-ax1)*frac;
+      const adx=toX(axPos), ady=toY(L(axPos));
+      const ag2=c.createRadialGradient(adx,ady,0,adx,ady,13);
+      ag2.addColorStop(0,CC.a3+'88'); ag2.addColorStop(1,'transparent');
+      c.fillStyle=ag2; c.beginPath(); c.arc(adx,ady,13,0,Math.PI*2); c.fill();
+      c.fillStyle=CC.a3; c.beginPath(); c.arc(adx,ady,6,0,Math.PI*2); c.fill();
+
+      // Legend
+      c.font='11px Inter'; c.textAlign='left';
+      c.fillStyle=CC.a4; c.fillText('● Simple nudging — bounces',10,16);
+      c.fillStyle=CC.a3; c.fillText('● Adam — settles smoothly',10,30);
+      c.fillStyle=CC.dm; c.font='10px Inter'; c.textAlign='right';
+      c.fillText('step '+Math.round(floatStep+1)+'/'+N, c.W-8, 16);
+      c.textAlign='left';
+
+      // End message fades in during pause
+      if(elapsed>DURATION){
+        const fadeIn=Math.min(1,(elapsed-DURATION)/0.4);
+        c.globalAlpha=fadeIn;
+        c.fillStyle=CC.a3; c.font='600 12px Inter'; c.textAlign='center';
+        c.fillText('Adam settled. SGD still bouncing. Neither saw the full map.',c.W/2,c.H-8);
+        c.textAlign='left'; c.globalAlpha=1;
+      }
+
+      RAF['ad']=requestAnimationFrame(draw);
+    };
+    draw();
+  },
+  train(){
+    stop('tr'); const c=gc('cv_train'); if(!c)return;
+    const lc=[]; let l=3.28;
+    for(let i=0;i<200;i++){l=l*.984+.02+(Math.random()-.5)*.14; l=Math.max(1.15,l); lc.push(l);}
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      const ox=46,oy=10,gw=c.W-56,gh=c.H-36,maxL=3.6,minL=1.0;
+      [3.3,2.5,1.8,1.2].forEach(lv=>{
+        const y=oy+gh-((lv-minL)/(maxL-minL))*gh;
+        c.strokeStyle=CC.bd; c.lineWidth=.5; c.setLineDash([3,5]);
+        c.beginPath(); c.moveTo(ox,y); c.lineTo(ox+gw,y); c.stroke(); c.setLineDash([]);
+        c.fillStyle=CC.dm; c.font='9px IBM Plex Mono'; c.textAlign='right'; c.fillText(lv.toFixed(1),ox-3,y+3); c.textAlign='left';
+      });
+      c.strokeStyle=CC.bd; c.lineWidth=1;
+      c.beginPath(); c.moveTo(ox,oy); c.lineTo(ox,oy+gh); c.lineTo(ox+gw,oy+gh); c.stroke();
+      c.fillStyle=CC.dm; c.font='10px Inter'; c.textAlign='center'; c.fillText('training rounds (0 → 1000)',ox+gw/2,oy+gh+14); c.textAlign='left';
+      c.save(); c.translate(14,oy+gh/2); c.rotate(-Math.PI/2); c.textAlign='center'; c.font='10px Inter'; c.fillStyle=CC.dm; c.fillText('penalty score',0,0); c.restore(); c.textAlign='left';
+      const refY=oy+gh-((3.3-minL)/(maxL-minL))*gh;
+      c.strokeStyle=CC.a4+'66'; c.lineWidth=1; c.setLineDash([5,4]);
+      c.beginPath(); c.moveTo(ox,refY); c.lineTo(ox+gw,refY); c.stroke(); c.setLineDash([]);
+      c.fillStyle=CC.a4+'88'; c.font='10px Inter'; c.fillText('starting point — pure guessing',ox+4,refY-4);
+      const fr=Math.min(199,Math.floor(t*25));
+      c.strokeStyle=CC.a3; c.lineWidth=2;
+      c.beginPath();
+      for(let i=0;i<=fr;i++){const x=ox+(i/199)*gw,y=oy+gh-((lc[i]-minL)/(maxL-minL))*gh; i===0?c.moveTo(x,y):c.lineTo(x,y);}
+      c.stroke();
+      if(fr>0){
+        const cx2=ox+(fr/199)*gw,cy2=oy+gh-((lc[fr]-minL)/(maxL-minL))*gh;
+        c.fillStyle=CC.a3; c.beginPath(); c.arc(cx2,cy2,5,0,Math.PI*2); c.fill();
+        const lx3=Math.min(cx2+8,c.W-90); c.fillStyle=CC.tx; c.font='10px IBM Plex Mono'; c.fillText('step '+(fr*5),lx3,cy2-6); c.fillText('penalty '+lc[fr].toFixed(2),lx3,cy2+7);
+      }
+      t+=.016; if(t<9)RAF['tr']=requestAnimationFrame(draw);
+    }; draw();
+  },
+
+  pipeline(){
+    stop('pp'); const c=gc('cv_pipe'); if(!c)return;
+    // Two lines per cell — short top label + icon, keeps text inside boxes
+    const stages=[
+      {a:'1.',b:'Letters → Numbers', col:CC.a3},
+      {a:'2.',b:'Give letters identity', col:CC.ac},
+      {a:'3.',b:'Read the past',        col:CC.a2},
+      {a:'4.',b:'Think & process',      col:CC.ac},
+      {a:'5.',b:'Measure mistake',      col:CC.a4},
+      {a:'6.',b:'Trace the blame',      col:CC.a4},
+      {a:'7.',b:'Fix the numbers',      col:CC.a2},
+      {a:'8.',b:'Repeat 1000×',         col:CC.dm},
+      {a:'✨', b:'New names!',           col:CC.a3},
+    ];
+    const COLS=3, ROWS=Math.ceil(stages.length/COLS);
+    const pad=10;
+    const gap=8;
+    const cellW=(c.W-pad*2-gap*(COLS-1))/COLS;
+    const cellH=42; // taller to fit two lines
+    let t=0;
+    const draw=()=>{
+      c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+      const startY=pad;
+      stages.forEach((s,i)=>{
+        const p=pg(t,i*.18,.35); if(p<=0)return;
+        const col=i%COLS, row=Math.floor(i/COLS);
+        const x=pad+col*(cellW+gap);
+        const y=startY+row*(cellH+gap);
+        c.globalAlpha=p;
+        // Box
+        c.fillStyle=s.col+'22'; c.strokeStyle=s.col; c.lineWidth=1.5;
+        c.beginPath(); c.roundRect(x,y,cellW,cellH,6); c.fill(); c.stroke();
+        // Clip text to cell
+        c.save(); c.beginPath(); c.rect(x+3,y,cellW-6,cellH); c.clip();
+        // Line 1: number/icon — small
+        c.fillStyle=s.col; c.font='500 9px IBM Plex Mono'; c.textAlign='center';
+        c.fillText(s.a, x+cellW/2, y+14);
+        // Line 2: label — fits within clipped region
+        c.font='600 11px Inter';
+        c.fillText(s.b, x+cellW/2, y+30);
+        c.restore();
+        c.textAlign='left'; c.globalAlpha=1;
+      });
+      // Flowing dot
+      if(t>0.8){
+        const cycleLen=stages.length;
+        const dotT=((t-0.8)*0.5)%cycleLen;
+        const si=Math.floor(dotT), frac=dotT-si;
+        const si2=(si+1)%cycleLen;
+        const col1=si%COLS,  row1=Math.floor(si/COLS);
+        const col2=si2%COLS, row2=Math.floor(si2/COLS);
+        const x1=pad+col1*(cellW+gap)+cellW/2;
+        const y1=startY+row1*(cellH+gap)+cellH/2;
+        const x2=pad+col2*(cellW+gap)+cellW/2;
+        const y2=startY+row2*(cellH+gap)+cellH/2;
+        const dx=x1+(x2-x1)*eo(frac);
+        const dy=y1+(y2-y1)*eo(frac);
+        const fc=stages[si].col;
+        const gr=c.createRadialGradient(dx,dy,0,dx,dy,12);
+        gr.addColorStop(0,fc+'cc'); gr.addColorStop(1,'transparent');
+        c.fillStyle=gr; c.beginPath(); c.arc(dx,dy,12,0,Math.PI*2); c.fill();
+        c.fillStyle=fc; c.beginPath(); c.arc(dx,dy,5,0,Math.PI*2); c.fill();
+      }
+      t+=.012; RAF['pp']=requestAnimationFrame(draw);
+    }; draw();
+  }
+};
+
+function drawRelu(){
+  const c=gc('cv_relu'); if(!c)return;
+  const sl=document.getElementById('slRelu'); if(!sl)return;
+  const v=parseFloat(sl.value)/10,o=Math.max(0,v);
+  c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+  const ox=c.W*.44,oy=c.H*.6,sc=13;
+  c.strokeStyle=CC.bd; c.lineWidth=.8;
+  c.beginPath(); c.moveTo(ox-c.W*.42,oy); c.lineTo(ox+c.W*.48,oy); c.stroke();
+  c.beginPath(); c.moveTo(ox,12); c.lineTo(ox,c.H-14); c.stroke();
+  c.strokeStyle=CC.a2; c.lineWidth=2.5;
+  c.beginPath();
+  for(let xi=-c.W*.4;xi<c.W*.45;xi+=2){const iv=xi/sc,ov2=Math.max(0,iv); xi===Math.floor(-c.W*.4)?c.moveTo(ox+xi,oy-ov2*sc):c.lineTo(ox+xi,oy-ov2*sc);}
+  c.stroke();
+  c.fillStyle=CC.dm; c.font='9px IBM Plex Mono';
+  c.textAlign='center'; c.fillText('number coming in',ox+c.W*.3,oy+12); c.textAlign='left'; c.fillText('number going out',ox+4,22);
+  const dx=ox+v*sc,dy=oy-o*sc,bl=(v<=0);
+  c.fillStyle=bl?CC.a4:CC.a3; c.beginPath(); c.arc(dx,dy,7,0,Math.PI*2); c.fill();
+  c.strokeStyle=CC.bg; c.lineWidth=2; c.stroke();
+  c.strokeStyle=(bl?CC.a4:CC.a3)+'66'; c.lineWidth=1; c.setLineDash([3,3]);
+  c.beginPath(); c.moveTo(dx,dy); c.lineTo(dx,oy); c.stroke();
+  c.beginPath(); c.moveTo(dx,dy); c.lineTo(ox,dy); c.stroke(); c.setLineDash([]);
+  c.fillStyle=bl?CC.a4:CC.a3; c.font='10px IBM Plex Mono'; c.textAlign='center';
+  c.fillText(`in:${v.toFixed(1)} → out:${o.toFixed(1)}  ${bl?'❌ GATE CLOSED':'✓ GATE OPEN'}`,c.W/2,c.H-8); c.textAlign='left';
+  const out=document.getElementById('reluOut');
+  if(out)out.textContent=bl?'Gate is CLOSED — this number is blocked. The model cannot learn through it right now.':'Gate is OPEN — number passes through unchanged. Learning flows freely.';
+}
+(function(){var el=document.getElementById('slRelu'); if(el)el.addEventListener('input',drawRelu);})();
+
+function drawLoss(){
+  const c=gc('cv_loss'); if(!c)return;
+  const sl=document.getElementById('slLoss'); if(!sl)return;
+  const prob=parseFloat(sl.value)/100,loss=-Math.log(prob);
+  c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+  const fc=prob>.6?CC.a3:(prob>.3?CC.ac:CC.a4);
+  // Confidence bar — full width, no side column
+  const pad=14;
+  const barW=c.W-pad*2, barH=26, barY=10;
+  c.fillStyle=CC.s2; c.beginPath(); c.roundRect(pad,barY,barW,barH,4); c.fill();
+  c.fillStyle=fc; c.beginPath(); c.roundRect(pad,barY,barW*prob,barH,4); c.fill();
+  // Label inside bar — short text to avoid overflow
+  c.fillStyle=CC.tx; c.font='600 12px Inter'; c.textAlign='center';
+  c.fillText(`Confidence: ${(prob*100).toFixed(0)}%`, pad+barW/2, barY+17); c.textAlign='left';
+  // Penalty number — large, centred
+  const penY=barY+barH+22;
+  c.fillStyle=fc; c.font='700 26px Inter'; c.textAlign='center';
+  c.fillText('Penalty: '+loss.toFixed(2), c.W/2, penY+4); c.textAlign='left';
+  // Visual penalty bar (vertical, centred)
+  const pbW=Math.min(60,c.W*.15), pbMaxH=c.H-penY-40, pbH=Math.min(pbMaxH,(loss/5)*pbMaxH);
+  const pbX=(c.W-pbW)/2, pbY=penY+16;
+  c.fillStyle=CC.s2; c.beginPath(); c.roundRect(pbX,pbY,pbW,pbMaxH,4); c.fill();
+  c.fillStyle=fc; c.beginPath(); c.roundRect(pbX,pbY+pbMaxH-pbH,pbW,pbH,4); c.fill();
+  // Message below bar
+  const msg=prob>.7?'✓ Confident & correct — tiny penalty':prob>.35?'~ Uncertain — medium penalty':'✗ Clueless — huge penalty';
+  c.fillStyle=fc; c.font='600 12px Inter'; c.textAlign='center';
+  c.fillText(msg, c.W/2, c.H-6); c.textAlign='left';
+  const out=document.getElementById('lossOut');
+  if(out)out.textContent=`Penalty = ${loss.toFixed(3)}. Goal: make this as small as possible.`;
+}
+(function(){var el=document.getElementById('slLoss'); if(el)el.addEventListener('input',drawLoss);})();
+
+function drawTemp(){
+  const c=gc('cv_temp'); if(!c)return;
+  const sl=document.getElementById('slTemp'); if(!sl)return;
+  const temp=parseFloat(sl.value)/100;
+  const logits=[2.1,1.3,.8,.3,.1,-.2,-.5];
+  const tkn=['a','e','i','n','r','b','m'];
+  const sl2=logits.map(l=>l/temp);
+  const mx=Math.max(...sl2);
+  const exps=sl2.map(l=>Math.exp(l-mx));
+  const sm=exps.reduce((a,b)=>a+b,0);
+  const probs=exps.map(e=>e/sm);
+  c.clearRect(0,0,c.W,c.H); c.fillStyle=CC.bg; c.fillRect(0,0,c.W,c.H);
+  const n=tkn.length,bw=Math.min(46,(c.W-60)/n-6),mh=c.H-68;
+  const sx=(c.W-n*(bw+6))/2;
+  tkn.forEach((tk,i)=>{
+    const x=sx+i*(bw+6),bh=probs[i]*mh;
+    const col=i===0?CC.a3:(i===1?CC.ac:CC.dm);
+    c.fillStyle=CC.s2; c.beginPath(); c.roundRect(x,18,bw,mh,4); c.fill();
+    c.fillStyle=col; c.beginPath(); c.roundRect(x,18+mh-bh,bw,bh,4); c.fill();
+    c.fillStyle=CC.tx; c.font='13px Inter'; c.textAlign='center'; c.fillText(tk,x+bw/2,c.H-34);
+    c.fillStyle=col; c.font='9px IBM Plex Mono'; c.fillText((probs[i]*100).toFixed(0)+'%',x+bw/2,c.H-22); c.textAlign='left';
+  });
+  const desc=temp<.4?'Very safe — always picks the most likely letter':temp<.8?'Balanced — mostly sensible, sometimes adventurous':temp<1.15?'As-is — exactly what the model calculated':temp<1.6?'Creative — more variety, some oddity':'Very random — almost ignores what was learned';
+  c.fillStyle=CC.dm; c.font='10px Inter'; c.textAlign='center'; c.fillText(`Temperature ${temp.toFixed(2)}  ·  ${desc}`,c.W/2,c.H-8); c.textAlign='left';
+  const out=document.getElementById('tempOut');
+  if(out)out.textContent=`Chance of picking 'a': ${(probs[0]*100).toFixed(1)}%  |  Chance of picking 'e': ${(probs[1]*100).toFixed(1)}%`;
+}
+(function(){var el=document.getElementById('slTemp'); if(el)el.addEventListener('input',drawTemp);})();
+
+// UI
+let aud='all';
+function setAud(a){
+  aud=a;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.a===a));
+  document.querySelectorAll('.lb').forEach(b=>{
+    if(a==='all'){b.style.display='block';return;}
+    const show=(a==='nt'&&b.classList.contains('lnt'))||(a==='tc'&&b.classList.contains('ltc'));
+    b.style.display=show?'block':'none';
+  });
+  setTimeout(()=>{drawRelu();drawLoss();drawTemp();},60);
+}
+function tog(id){
+  const el=document.getElementById(id); if(!el)return;
+  el.classList.toggle('open'); setAud(aud);
+}
+window.addEventListener('scroll',()=>{
+  const d=document.documentElement;
+  document.getElementById('pf').style.width=(d.scrollTop/(d.scrollHeight-d.clientHeight)*100)+'%';
+});
+
+// Lock canvas heights on load
+(function(){
+  document.querySelectorAll('canvas[height]').forEach(el=>{
+    const h=parseInt(el.getAttribute('height'))||180;
+    el.dataset.h=String(h); el.style.height=h+'px'; el.style.display='block';
+  });
+})();
+
+document.querySelectorAll('.card').forEach(c=>c.classList.add('open'));
+setAud('nt');
+// Auto-start all animations with staggered timing to avoid jank
+setTimeout(()=>{ try{A.seed();}catch(e){console.error('seed:',e)} }, 200);
+setTimeout(()=>{ try{A.token();}catch(e){console.error('token:',e)} }, 300);
+setTimeout(()=>{ try{A.cgraph();}catch(e){console.error('cgraph:',e)} }, 400);
+setTimeout(()=>{ try{A.backprop();}catch(e){console.error('bp:',e)} }, 500);
+setTimeout(()=>{ try{A.embed();}catch(e){console.error('emb:',e)} }, 600);
+setTimeout(()=>{ try{A.attn();}catch(e){console.error('attn:',e)} }, 700);
+setTimeout(()=>{ try{A.attnmat();}catch(e){console.error('am:',e)} }, 800);
+setTimeout(()=>{ try{A.resid();}catch(e){console.error('res:',e)} }, 900);
+setTimeout(()=>{ try{A.adam();}catch(e){console.error('adam:',e)} }, 1000);
+setTimeout(()=>{ try{A.train();}catch(e){console.error('train:',e)} }, 1100);
+setTimeout(()=>{ try{A.pipeline();}catch(e){console.error('pipe:',e)} }, 1200);
+setTimeout(()=>{ try{drawRelu();drawLoss();drawTemp();}catch(e){console.error('sliders:',e)} }, 1300);
+</script>
+</body>
+</html>
