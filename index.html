@@ -248,7 +248,7 @@ vocab_size = <span class="fn">len</span>(uchars) + <span class="nm">1</span>    
   <div class="expl"><div class="ap active" data-lv="all">
 
     <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
-      Once we know how wrong the model was, we trace backward through the entire family tree of calculations to figure out which numbers were responsible — and by how much. Every single number that contributed to the wrong answer gets a "blame score." Numbers with high blame scores tend to get larger adjustments — though the exact size also depends on the optimizer and learning rate.
+      Once we know how wrong the model was, we trace backward through the entire family tree of calculations to figure out which numbers were responsible — and by how much. Every single number that contributed to the wrong answer gets a "blame score." Numbers with high blame scores tend to get larger adjustments — though the exact amount also depends on how the fixing step is tuned.
       <div class="ac"><div class="al">🌊 Blame flows backward — each number gets its responsibility score</div>
         <canvas id="cv_bp" height="290"></canvas>
         <button class="abtn" onclick="try{A.backprop()}catch(e){console.error('backprop:',e)}">▶ Run Backward Pass</button>
@@ -272,7 +272,7 @@ vocab_size = <span class="fn">len</span>(uchars) + <span class="nm">1</span>    
   <div class="expl"><div class="ap active" data-lv="all">
 
     <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
-      This is a simple gate: if a number coming in is positive, it passes through unchanged. If it's negative, it gets replaced with zero. That's it. But this tiny rule is critical — without it, the entire model would be mathematically equivalent to a single extremely simple calculation, no matter how many layers you stacked. Without this gate, stacking more layers has no benefit — the whole network would collapse to a single linear transformation. The gate is what allows the model to learn non-linear relationships in the data.
+      This is a simple gate: if a number coming in is positive, it passes through unchanged. If it's negative, it gets replaced with zero. That's it. But this tiny rule is what gives the model its power. Without it, adding more layers would be completely pointless — the whole thing would be mathematically identical to having just one layer, no matter how deep you went. The gate is what allows the model to learn patterns that a simple straight-line rule could never capture.
       <div class="ac"><div class="al">⚡ Drag the slider — watch the gate open and close</div>
         <canvas id="cv_relu" height="170"></canvas>
         <input type="range" id="slRelu" min="-30" max="30" value="-10">
@@ -300,7 +300,7 @@ x = letter_description + position_description</pre>
   <div class="expl"><div class="ap active" data-lv="all">
 
     <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
-      The number 4 just means the letter "e" — it's a label with no meaning of its own. Before the model can work with it, the number 4 gets swapped for a list of 16 learned numbers that represent "e" as a fixed identity — the same 16 numbers every time "e" appears, regardless of its context. Context-sensitivity comes later, in the attention step. Think of it like upgrading from a name badge (just a label) to a full profile card (personality, history, relationships). The letter's position in the name also gets its own profile, and the two are combined.
+      The number 4 just means the letter "e" — it's a label with no meaning of its own. Before the model can work with it, the number 4 gets swapped for a list of 16 learned numbers that capture what "e" means as a letter — the same 16 numbers every time "e" appears. Later, a separate step figures out how the context around it matters. Think of it like upgrading from a name badge (just a label) to a full profile card (personality, history, relationships). The letter's position in the name also gets its own profile, and the two are combined.
       <div class="ac"><div class="al">🎴 Watch a single letter become a rich 16-number profile</div>
         <canvas id="cv_emb" height="190"></canvas>
         <button class="abtn" onclick="try{A.embed()}catch(e){console.error('embed:',e)}">▶ Look up letter 'e'</button>
@@ -332,7 +332,7 @@ attention = how well q matches each k → weighted mix of v</pre>
         <button class="abtn" onclick="try{A.attn()}catch(e){console.error('attn:',e)}">▶ Watch Attention Move</button>
       </div>
       <div class="analogy">Like a chef mid-recipe who glances back at the recipe card. They don't re-read the entire recipe — they focus on the step that's most relevant right now. The model learned during training which patterns in past letters tend to be useful at each point — it encodes this as weight matrices, not rules anyone wrote by hand.</div>
-      <br><strong>Why 4 attention heads?</strong> The model runs this spotlight process 4 times in parallel, each one looking for different kinds of patterns — each one may pick up on different statistical patterns in the data. All four results get combined.
+      <br><strong>Why 4 attention heads?</strong> The model runs this spotlight process 4 times in parallel, each one looking for different kinds of patterns — each one may notice different things — one might respond to how a name starts, another to patterns near the end. All four results get combined.
       <div class="ac"><div class="al">📊 Attention scores as a grid — darker = more attention paid</div>
         <canvas id="cv_amat" height="230"></canvas>
         <button class="abtn" onclick="try{A.attnmat()}catch(e){console.error('attnmat:',e)}">▶ Show Grid</button>
@@ -358,7 +358,7 @@ x = x + original  <span class="cm"># ← add the original back in (the skip conn
   <div class="expl"><div class="ap active" data-lv="all">
 
     <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
-      After the attention step reads the past, there's a "thinking" step. The model temporarily expands from 16 numbers to 64 — giving itself more working space to process what it just read — then compresses back down to 16. But crucially, it also adds back the original 16 numbers it started with before the thinking step. This "add the original back" trick turns out to be essential for training deep models that actually learn.
+      After the attention step reads the past, there's a "thinking" step. The model temporarily expands from 16 numbers to 64 — giving itself more working space to process what it just read — then compresses back down to 16. But crucially, it also adds back the original 16 numbers it started with before the thinking step. This "add the original back" trick turns out to be essential — without it, information gets scrambled and distorted as it flows through the layers, and the model struggles to learn anything useful.
       <div class="ac"><div class="al">🛣️ The original is added back after each transformation</div>
         <canvas id="cv_res" height="200"></canvas>
         <button class="abtn" onclick="try{A.resid()}catch(e){console.error('resid:',e)}">▶ Animate Signal Flow</button>
@@ -387,7 +387,7 @@ penalty = -log( probs[correct_letter] )
   <div class="expl"><div class="ap active" data-lv="all">
 
     <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
-      After the model makes a prediction, we need to measure how wrong it was. The model outputs a confidence score for all 27 possible next letters. We look at how much confidence it gave to the <em>correct</em> letter. If it was very confident and correct, the penalty is tiny. If it gave the correct letter almost zero confidence, the penalty is huge. We want this penalty number — called the "loss" — to get as small as possible over time.
+      After the model makes a prediction, we need to measure how wrong it was. The model outputs a confidence score for all 27 possible next letters. We look at how much confidence it gave to the <em>correct</em> letter. If it was very confident and correct, the penalty is tiny. If it gave the correct letter almost zero confidence, the penalty is huge. We want this penalty number to get as small as possible over time — that's the whole goal of training.
       <div class="ac"><div class="al">🎯 Drag to see how confidence changes the penalty</div>
         <canvas id="cv_loss" height="170"></canvas>
         <input type="range" id="slLoss" min="1" max="99" value="10" style="accent-color:var(--a4)">
@@ -416,7 +416,7 @@ weight.gradient = <span class="nm">0</span>  <span class="cm"># reset for next r
     <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
       After measuring how wrong the model was and tracing which numbers caused it, we need to actually fix those numbers. The simplest approach would be to nudge everything by a fixed amount in the right direction. But Adam is smarter — it remembers recent corrections and adapts: bolder when consistently heading the same way, more cautious when bouncing around.
       <br><br>
-      <strong>Important caveat:</strong> neither approach can <em>see</em> the full landscape. Both algorithms only feel the slope directly underfoot — one small step at a time. There could be a deeper valley just over a hill they never climb. This is why training can produce different results from different starting points, and why finding the true global best is an unsolved problem. In practice we just run it multiple times and pick the best result.
+      <strong>Important caveat:</strong> neither approach can <em>see</em> the full landscape. Both approaches only feel the slope right under their feet — one tiny step at a time. There could be a lower point just over a hill they never cross. This is why running the same training twice can give slightly different results, and why nobody can guarantee the model found the absolute best version of itself. In practice you just run it several times and keep the best.
       <div class="ac"><div class="al">🏔️ Finding <em>a</em> low point — not necessarily the lowest</div>
         <canvas id="cv_adam" height="200"></canvas>
         <button class="abtn" onclick="try{A.adam()}catch(e){console.error('adam:',e)}">▶ Compare Simple vs Adam</button>
@@ -443,7 +443,7 @@ weight.gradient = <span class="nm">0</span>  <span class="cm"># reset for next r
   <div class="expl"><div class="ap active" data-lv="all">
 
     <div class="lb lnt"><div class="lh">🙋 Non-Technical</div><div class="lbody">
-      Training is just this 4-step loop repeated 1000 times. Each round, the model studies one name, measures how badly it predicted each next letter, computes a gradient for each of its 4,192 internal numbers — how much each one contributed to the mistake, and nudges all of them slightly in the right direction. After 1000 rounds of this, those 4,192 numbers have been gradually nudged toward capturing patterns in real names. At this tiny scale the results are rough — the model generates plausible-looking names, not polished ones — but the same process — at vastly larger scale — forms the foundation of every AI language model. (Modern assistants like Claude or ChatGPT add further training stages on top, but they all start here.)
+      Training is just this 4-step loop repeated 1000 times. Each round, the model studies one name, measures how badly it predicted each next letter, works out how much each of its 4,192 internal numbers contributed to the mistake, and nudges all of them slightly in the right direction. After 1000 rounds of this, those 4,192 numbers have been gradually nudged toward capturing patterns in real names. At this tiny scale the results are rough — the model generates plausible-looking names, not polished ones — but the same process — at vastly larger scale — is the foundation of every AI you've used. (ChatGPT, Claude, and Gemini have extra layers of training on top of this to make them helpful assistants, but they all start from exactly this loop.)
       <div class="ac"><div class="al">📊 The penalty score drops as the model learns</div>
         <canvas id="cv_train" height="190"></canvas>
         <button class="abtn" onclick="try{A.train()}catch(e){console.error('train:',e)}">▶ Simulate Training</button>
@@ -515,7 +515,7 @@ next_letter = randomly_pick(probs)  <span class="cm"># weighted by confidence</s
         <tr><td>Fix the numbers</td><td>Nudge everything slightly toward being less wrong</td><td>GPS rerouting after a wrong turn</td></tr>
       </table>
       <br><strong>The key insight:</strong> "Everything else is just efficiency." — Andrej Karpathy.<br><br>
-      Every AI you've used — ChatGPT, Claude, Gemini — is built on this same core idea: predict the next character (or token, at larger scale), measure the error, trace the blame, nudge the numbers. The architectures have grown far more complex, but the fundamental loop is identical. The only real difference is scale — hundreds of billions of numbers instead of 4,192.
+      Every AI you've used — ChatGPT, Claude, Gemini — is built on this same core idea: predict the next character, measure how wrong it was, trace which numbers caused it, nudge them to be slightly less wrong. The architectures have grown far more complex, but the fundamental loop is identical. The only real difference is scale — hundreds of billions of numbers instead of 4,192.
       <br><br><strong>Karpathy's point: everything else is just efficiency.</strong>
     </div></div>
 
